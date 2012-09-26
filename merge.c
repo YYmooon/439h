@@ -3,7 +3,7 @@
 int
 main(int argc, char *argv[])
 {
-	printf("X\n");
-	printf("Y\n");
-	printf("Z\n");
+	printf("A\n");
+	printf("B\n");
+	printf("C\n");
 }
