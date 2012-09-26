@@ -155,3 +155,7 @@ experimentation in GDB.
 ###Problem 16
 "Lab 1 Files" is the commit message for the first git commit on this source 
 tree.
+
+###Problem 17
+The commit message on my merge was something like "merge branches because". The 
+merge ref is 1c9a3c8326d82e4f79cbd52158e44a6246b61ccc.
