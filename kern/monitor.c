@@ -27,6 +27,8 @@ static struct Command commands[] = {
     { "backtrace", "Display a full traceback of the kernel", mon_backtrace}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
+#define EIP (*(int*)(ebp+0x1))
+
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -71,8 +73,12 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
         }
         cprintf("\n");
 
-        debuginfo_eip(((uintptr_t)ebp), &info);
-        cprintf("         %s: %i : %s+%x\n", info.eip_file, info.eip_line, info.eip_fn_name, (*(ebp+1)-info.eip_fn_addr));
+        //cprintf("%x\n", EIP);
+
+        debuginfo_eip(((uintptr_t) EIP), &info);
+        cprintf("         %s:%d: %.*s+%x\n", 
+                info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, (*(ebp+1)-info.eip_fn_addr));
+
         ebp = ((int*)*ebp);
     }
 	return 0;
