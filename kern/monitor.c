@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+    { "backtrace", "Display a full traceback of the kernel", mon_backtrace}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -58,11 +59,24 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+    int *ebp = ((int*)read_ebp());
+    int offset;
+    struct Eipdebuginfo info;
+
+    while(1) {
+        if(0 == ebp) break;
+        cprintf("  ebp %08x  eip %08x  args", ebp, *(ebp+0x1));
+        for(offset=2; offset < 7; offset++) {
+            cprintf(" %08x", *(ebp+offset));
+        }
+        cprintf("\n");
+
+        debuginfo_eip(((uintptr_t)ebp), &info);
+        cprintf("         %s: %i : %s+%x\n", info.eip_file, info.eip_line, info.eip_fn_name, (*(ebp+1)-info.eip_fn_addr));
+        ebp = ((int*)*ebp);
+    }
 	return 0;
 }
-
-
 
 /***** Kernel monitor command interpreter *****/
 
