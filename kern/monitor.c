@@ -55,11 +55,24 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
-	return 0;
+  physaddr_t eip;
+  __asm __volatile("movl 4(%%ebp), %0":"=r" (eip));
+  physaddr_t ebp = read_ebp();
+
+  cprintf("Stack backtrace:\n");  
+  while(ebp != 0) {
+    physaddr_t* pa = (physaddr_t*) ebp;
+    cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
+        pa, eip, pa[2], pa[3], pa[3], pa[4], pa[5]);
+    ebp = *pa;
+  }
+  cprintf("...\n");
+
+  return 0;
 }
 
 
