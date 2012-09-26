@@ -29,3 +29,7 @@ Lab #1
 13. One could change the interface so that the parameters included a trusted pointer to contiguous memory blocks containing each actual argument and another trusted pointer to the corresponding size for each actual argument indicating how many blocks each takes up. Then one could then build the equivalent of a va_list using bit hacking...
 
 14. Kernel reserves space through virtual memory mapping at 0xf0110000, which is "high" in its reserved space and grows downwards. It pushes 8 arguments on the stack for each nested call: *putch, *putdat, *fmt, and 5 variable parameters. 
+
+16. Lab 1 files
+
+17. master
