@@ -10,12 +10,12 @@
 #include <kern/kclock.h>
 
 // These variables are set by i386_detect_memory()
-size_t npages;			// Amount of physical memory (in pages)
+size_t npages;                  // Amount of physical memory (in pages)
 static size_t npages_basemem;	// Amount of base memory (in pages)
 
 // These variables are set in mem_init()
-pde_t *kern_pgdir;		// Kernel's initial page directory
-struct Page *pages;		// Physical page state array
+pde_t *kern_pgdir;                  // Kernel's initial page directory
+struct Page *pages;                 // Physical page state array
 static struct Page *page_free_list;	// Free list of physical pages
 
 
@@ -98,8 +98,24 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
+    
+    if(n == 0) { 
+        return nextfree; 
+    } else {
+        int _pages = (n / PGSIZE) + 1;
 
-	return NULL;
+        char *base = nextfree;
+        char *pagemax = (npages * PGSIZE);
+        char *_offset = (_pages * PGSIZE);
+        char *_nextbase = nextfree + _offset;
+
+        if((_nextbase > npages * PGSIZE) || (_nextbase < _offset)) {
+            _panic("Cannot allocate enough pages in hardware to support this request");
+        } else {
+            nextfree = _nextbase;
+            return base;
+        }
+    }
 }
 
 // Set up a two-level page table:
