@@ -52,7 +52,6 @@ i386_detect_memory(void)
 		npages_extmem * PGSIZE / 1024);
 }
 
-
 // --------------------------------------------------------------
 // Set up memory mappings above UTOP.
 // --------------------------------------------------------------
@@ -110,7 +109,7 @@ boot_alloc(uint32_t n)
         char *_nextbase = nextfree + _offset;
 
         if((_nextbase > npages * PGSIZE) || (_nextbase < _offset)) {
-            _panic("Cannot allocate enough pages in hardware to support this request");
+            panic("Cannot allocate enough pages in hardware to support this request\n");
         } else {
             nextfree = _nextbase;
             return base;
@@ -157,9 +156,9 @@ mem_init(void)
 	// Allocate an array of npages 'struct Page's and store it in 'pages'.
 	// The kernel uses this array to keep track of physical pages: for
 	// each physical page, there is a corresponding struct Page in this
-	// array.  'npages' is the number of physical pages in memory.
-	// Your code goes here:
+	// array. 'npages' is the number of physical pages in memory.
 
+    pages = boot_alloc(sizeof(Page) * npages);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -182,7 +181,7 @@ mem_init(void)
 	//    - the new image at UPAGES -- kernel R, user R
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
-	// Your code goes here:
+
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -236,6 +235,7 @@ mem_init(void)
 // Pages are reference counted, and free pages are kept on a linked list.
 // --------------------------------------------------------------
 
+
 //
 // Initialize page structure and memory free list.
 // After this is done, NEVER use boot_alloc again.  ONLY use the page
@@ -262,11 +262,23 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i;
+
+#define BIOSDATA_PG         (0)    
+#define IOPHYSMEM_PG        (IOPHYSMEM/PGSIZE)
+#define EXTPHYSMEM_PG       (EXTPHYSMEM/PGSIZE)
+#define KERNTOP_PG          (boot_alloc(0)/PGSIZE)
+#define BETWEEN(v,h,l)      ((v>=l)&&(v<h))
+#define USABLE(x)           (!((x == BIOSDATA_PG) || BETWEEN(x,IOPHYSMEM_PG,EXTPHYSMEM_PG) || BETWEEN(x,EXTPHYSMEM_PG,KERNTOP_PG)))
+    
+    size_t i;
 	for (i = 0; i < npages; i++) {
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+        if(USABLE(i)) {
+    		pages[i].pp_ref = 0;
+	    	pages[i].pp_link = page_free_list;
+		    page_free_list = &pages[i];
+        } else {
+            pages[i].pp_ref = 1;
+        }
 	}
 }
 
@@ -282,8 +294,10 @@ page_init(void)
 struct Page *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+    struct Page *_head = page_free_list;        // grab the linked list head
+    page_free_list = page_free_list->pp.link;   // set the head to the next element
+    _head->pp_link = NULL;                      // nuke the old head's next pointer
+	return _head;                               // return the old head
 }
 
 //
@@ -293,7 +307,8 @@ page_alloc(int alloc_flags)
 void
 page_free(struct Page *pp)
 {
-	// Fill this function in
+    pp->pp_link = page_free_list;               // set this Page's link to the current head
+    page_free_list = pp;                        // set the head pointer to this element
 }
 
 //
