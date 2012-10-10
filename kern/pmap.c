@@ -102,19 +102,18 @@ boot_alloc(uint32_t n)
         cprintf("{:function \"boot_alloc\" :nextfree 0x%x}\n", nextfree);
         return nextfree; 
     } else {
+        char *old_nextfree = nextfree;
+        char *pagemax = (char*) (npages * PGSIZE);
+
+
         int _pages = (n / PGSIZE) + 1;
 
-        char *base = nextfree;
-        char *pagemax = (char*) (npages * PGSIZE);
-        int _offset = (_pages * PGSIZE);
-        char *_nextbase = (char*) nextfree + _offset;
+        char *_nextbase = (char*) nextfree + (_pages * PGSIZE);
         
         cprintf("{:function \"boot_alloc\" :nextfree-old 0x%x :nextfree-new 0x%x}\n", nextfree, _nextbase);
 
-        if((_nextbase <= pagemax) && !(_nextbase > nextfree)) {
-            nextfree = _nextbase;
-        }
-        return base;
+        nextfree = _nextbase;
+        return old_nextfree;
     }
 }
 
@@ -169,9 +168,11 @@ mem_init(void)
 	// or page_insert
 	page_init();
 
+    cprintf("trying to check_page_free_list\n");
 	check_page_free_list(1);
     cprintf("check_page_free_list passed!\n");
 
+    cprintf("trying to check_page_alloc\n");
 	check_page_alloc();
 	cprintf("check_page_alloc passed!\n");
     
@@ -291,19 +292,19 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 
-    size_t i;
+    unsigned int i;
+    page_free_list = NULL;
     unsigned int kern_top = PADDR(boot_alloc(0));
-	for (i = 0; i < npages; i++) {
-        if(!((i == 0) || 
-           ((IOPHYSMEM <= i*PGSIZE) && ( i*PGSIZE < EXTPHYSMEM)) ||
-           ((EXTPHYSMEM <= i*PGSIZE) && ( i*PGSIZE < kern_top)))) {
 
-       	   pages[i].pp_ref = 0;
+    for (i = 1; i < npages; i++) {
+        if((IOPHYSMEM <= i*PGSIZE) && ( i*PGSIZE < kern_top)) {
+           pages[i].pp_ref = 1;
+        } else {
+           pages[i].pp_ref = 0;
 	       pages[i].pp_link = page_free_list;
 		   page_free_list = &pages[i];
         }
     }
-    cprintf("Survived page_init\n");
 }
 
 //
@@ -319,12 +320,14 @@ struct Page *
 page_alloc(int alloc_flags)
 {
     struct Page *_head = page_free_list;        // grab the linked list head
-    page_free_list = page_free_list->pp_link;   // set the head to the next element
-    _head->pp_link = NULL;                      // nuke the old head's next pointer
-    if(alloc_flags & ALLOC_ZERO)                //// if the zero flag is set
-        memset(page2kva(_head), 0, PGSIZE);     //// nuke the memory
-
-    return _head;                               // return the old head
+    if(NULL == _head) {
+       return NULL;
+    } else {
+        page_free_list = page_free_list->pp_link;   // set the head to the next element
+        if(alloc_flags & ALLOC_ZERO)                //// if the zero flag is set
+            memset(page2kva(_head), 0, PGSIZE);     //// nuke the memory
+        return _head;
+    }
 }
 
 //
