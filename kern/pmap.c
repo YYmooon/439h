@@ -175,7 +175,8 @@ mem_init(void)
     cprintf("trying to check_page_alloc\n");
 	check_page_alloc();
 	cprintf("check_page_alloc passed!\n");
-    
+   
+    cprintf("trying to check_page\n"); 
     check_page();
     cprintf("check_page passed!\n");
 
@@ -326,6 +327,7 @@ page_alloc(int alloc_flags)
         page_free_list = page_free_list->pp_link;   // set the head to the next element
         if(alloc_flags & ALLOC_ZERO)                //// if the zero flag is set
             memset(page2kva(_head), 0, PGSIZE);     //// nuke the memory
+        _head->pp_link = NULL;
         return _head;
     }
 }
@@ -374,16 +376,30 @@ page_decref(struct Page* pp)
 // Hint 3: look at inc/mmu.h for useful macros that mainipulate page
 // table and page directory entries.
 //
+// Page Directory structure notes
+//   The page dir is a linear array of pte_t* values, each one of which is the  
+//   __physical memory__ address for the start of the page which forms the second
+//   level of the page table.
+//
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-    pte_t *l = ((pte_t*) pgdir[PDX(va)]);
-    if((NULL == l) && create) {
-        l = ((pte_t*) page_alloc(ALLOC_ZERO));
-        pgdir[PDX(va)] = ((int) l);
-    } else return NULL;
-
-    return (l+PTX(va));
+    int pgdir_entry = pgdir[PDX(va)];
+    if(0 == pgdir_entry) {
+        if(!create) {
+            // case 0 - null page and no creage
+            return NULL;
+        } else {
+            // case 1 - null page and create
+            struct Page* new_page = page_alloc(ALLOC_ZERO);
+            pgdir[PDX(va)] = (int) page2pa(new_page) | (PTE_P | PTE_U | PTE_W);
+            return (pte_t*) KADDR(PTE_ADDR(pgdir[PDX(va)]) +
+                                  PTX(va));
+        }
+    } else {
+        // case 2 - non-null page (create ignored)
+        return (pte_t*) KADDR(PTE_ADDR(pgdir_entry) + PTX(va)); 
+    }
 }
 
 //
@@ -455,10 +471,15 @@ struct Page *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
     pte_t *foo = pgdir_walk(pgdir, va, 0);
-    struct Page  *p = pa2page(*foo);
-    if(pte_store)
-        *pte_store = (pte_t*) p;
-    return p;
+    if(foo == NULL) {
+       return NULL;
+    } else {
+        struct Page *p = pa2page(PADDR(foo));
+        if(pte_store)
+            *pte_store = (pte_t*) p;
+
+        return p;
+    }
 }
 
 //
@@ -736,9 +757,11 @@ check_page(void)
 
 	// should be no free memory
 	assert(!page_alloc(0));
+        cprintf("[check_page] no free memory case OK\n");
 
 	// there is no page allocated at address 0
 	assert(page_lookup(kern_pgdir, (void *) 0x0, &ptep) == NULL);
+        cprintf("[check_page] no page mapped to address 0 OK\n");
 
 	// there is no free memory, so we can't allocate a page table
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) < 0);
