@@ -1,35 +1,26 @@
 Brian Schmitz
 bschmitz
-Lab #1
+2
 
-1. The processor starts executing 32-bit code after it jumps from 0x7c2d to 0x7c32 in a 32-bit code segment. The processor switches to 32-bit mode when it enters the 32-bit code segment.
+1. x should have type uintptr_t since the os was able to dereference the returned pointer.
 
-2. The last instruction the boot loader executes is call *0x10018. The first instruction of the loaded kernel is movw $0x1234,0x472.
+2.
 
-3. The first instruction of the loaded kernel is at 0x10000c.
+Entry -- Base Virtual Address -- Points to (logically)
 
-4. The boot loader reads the first page from disk and stores size and offset data in an Elf struct (defined in inc/elf.h) if the page is a valid ELF. If the page is valid, the boot loader determines the number of segments to loop through based on the size and offset data and reads each segment.
+960 -- 0xf0000000 -- page table holding first 4 MB of physical memory of kernel
+961 -- 0xf0400000 -- page table holding next 4 MB of physical memory of kernel
+...
+976 -- 0xf4000000 -- page table holding (part of) last 4 MB of physical memory of kernel page directory
 
-5. At the point that the BIOS enters the boot loader, the kernel image has not yet been loaded, so the 8 words at 0x00100000 are all initially zero by default. Once the kernel image has been loaded, those values are replaced by instruction codes on the kernel image.
+3. The kernel has set permission bits in its space, so the user cannot read or write kernel memory.
 
-6. There are instruction codes on the kernel image at 0x00100000.
+4-5. This operating system can support 4 GB of physical memory; however, the size of the OS and page directory
+would reduce this slightly. The kernel page directory includes 16638 pages each taking up 1024 bytes, and the
+directory itself is negligible in comparison. These and memory holes only reduce the available memory by 
+roughly 10-30 MB, however, so 4 GB is close enough. If we used the maximum amount of physical memory,
+memory management would take up 1025 pages tables (including 1 directory) * 1024 pointers * 4 bytes = 
+4198400 bytes or about 4 MB.
 
-7. The jmp *%eax at 0xf0100028 is the first instruction that doesn't work properly when the mapping isn't in place.
-
-8. console.c exports cputchar(), which printf.c uses to output a char and increment a referenced counter provided in a parameter in its own putch function.
-
-9. Allocate a char buffer for a new line if the cursor position exceeds the length of the buffer.
-
-10. fmt points to a C-standard format string, which lib/printfmt.c uses to format the corresponding list of variables that ap points to. First, cprintf calls vcprintf("x %d, y %x, z %d\n", ...), which calls vprintfmt. This calls cputch(ch, putdat) until a % flag is found. It next finds a d type, so it performs putch('x') and repeats for each integer until a null terminator is reached. va_arg is initially a va_list of variable arguments and is unitialized after the va_end.
-
-11. It follows the same patterns as the last question, except that it ignores characters preceding unescaped % characters entirely as they are encountered.
-
-12. It can't print anything if there is no corresponding parameter to the placeholder.
-
-13. One could change the interface so that the parameters included a trusted pointer to contiguous memory blocks containing each actual argument and another trusted pointer to the corresponding size for each actual argument indicating how many blocks each takes up. Then one could then build the equivalent of a va_list using bit hacking...
-
-14. Kernel reserves space through virtual memory mapping at 0xf0110000, which is "high" in its reserved space and grows downwards. It pushes 8 arguments on the stack for each nested call: *putch, *putdat, *fmt, and 5 variable parameters. 
-
-16. Lab 1 files
-
-17. master
+6. The instruction has not reached the end of its pipeline at these points, so EIP has not changed yet, so
+we must stall briefly before EIP is above KERNBASE.
