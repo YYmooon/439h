@@ -173,19 +173,11 @@ mem_init(void)
 	// or page_insert
 	page_init();
 
-    cprintf("trying to check_page_free_list\n");
 	check_page_free_list(1);
-    cprintf("check_page_free_list passed!\n");
 
-    cprintf("trying to check_page_alloc\n");
 	check_page_alloc();
-	cprintf("check_page_alloc passed!\n");
    
-    cprintf("trying to check_page\n"); 
     check_page();
-    cprintf("check_page passed!\n");
-
-    cprintf("FUCK YEAH PASSED THE FIRST BATCH OF TESTS!\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
@@ -285,7 +277,6 @@ internal_free_page_list_len() {
         i++;
         cur = cur->pp_link;
     }
-    cprintf("[internal_free_page_list_len] length %u\n", i);
     return i;
 }
 
@@ -320,10 +311,7 @@ page_init(void)
     page_free_list = NULL;
     void * kern_top_va = boot_alloc(0);
     unsigned int kern_top = PADDR(kern_top_va);
-    cprintf("pages: VA: %08x\n", pages);
-    cprintf("kern_top: VA: %08x, PA: %08x\n", kern_top_va, kern_top);
 
-    cprintf("npages :%u (x%x)\n", npages, npages);
     for (i = 1; i < npages; i++) {
         if((IOPHYSMEM <= i*PGSIZE) && ( i*PGSIZE < kern_top)) {
            pages[i].pp_ref = 1;
@@ -332,12 +320,8 @@ page_init(void)
            pages[i].pp_ref = 0;
 	       pages[i].pp_link = page_free_list;
 		   page_free_list = &pages[i];
-           if (i == 0x40FE) {
-               cprintf("40fe link: index: %x\n", (pages[i].pp_link - &pages[0]));
-               }
         }
     }
-    internal_check_free_page_list(0);
 }
 
 //
@@ -360,7 +344,6 @@ page_alloc(int alloc_flags)
         if(alloc_flags & ALLOC_ZERO)                //// if the zero flag is set
             memset(page2kva(_head), 0, PGSIZE);     //// nuke the memory
         _head->pp_link = NULL;
-        internal_check_free_page_list(1);
         return _head;
     }
 }
@@ -374,7 +357,6 @@ page_free(struct Page *pp)
 {
     pp->pp_link = page_free_list;               // set this Page's link to the current head
     page_free_list = pp;                        // set the head pointer to this element
-    internal_check_free_page_list(2);
 }
 //
 // Decrement the reference count on a page,
@@ -422,17 +404,14 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	if (!(*pgdir & PTE_P)) {
         // no page is present, alloc one if create otherwise return null
         if(create) {
-    internal_check_free_page_list(4);
             struct Page *new_page = page_alloc(ALLOC_ZERO);       // get a new page
             if (new_page == NULL) return NULL;
-    internal_check_free_page_list(5);
             new_page->pp_ref++;
             *pgdir = page2pa(new_page) | (PTE_P | PTE_U | PTE_W); // put it in the table with flags
         } else {
             return NULL;
         }
     }
-    internal_check_free_page_list(3);
     p = (pte_t*) KADDR(PTE_ADDR(*pgdir));
 	return (pte_t*) &p[PTX(va)];
 }
@@ -855,33 +834,23 @@ check_page(void)
 	// temporarily steal the rest of the free pages
 	fl = page_free_list;
 	page_free_list = 0;
-    internal_free_page_list_len();
 
 	// should be no free memory
 	assert(!page_alloc(0));
-        cprintf("[check_page] no free memory case OK\n");
-    internal_free_page_list_len();
 
 	// there is no page allocated at address 0
 	assert(page_lookup(kern_pgdir, (void *) 0x0, &ptep) == NULL);
-        cprintf("[check_page] no page mapped to address 0 OK\n");
-    internal_free_page_list_len();
 
 	// there is no free memory, so we can't allocate a page table
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) < 0);
-        cprintf("[check_page] page_insert OK\n");
-    internal_free_page_list_len();
 
 	// free pp0 and try again: pp0 should be used for page table
-    internal_free_page_list_len();
 	page_free(pp0);
-    internal_free_page_list_len();
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) == 0);
 	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
 	assert(check_va2pa(kern_pgdir, 0x0) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp0->pp_ref == 1);
-        cprintf("[check_page] freeing pp0 and then using it for a page table OK\n");
 
 	// should be able to map pp2 at PGSIZE because pp0 is already allocated for page table
 	assert(page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W) == 0);
