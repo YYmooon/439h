@@ -1,37 +1,5 @@
 Brian Schmitz
 bschmitz
-2
+3
 
-1. x should have type uintptr_t since the os was able to dereference the returned pointer.
-
-2.
-
-Entry -- Base Virtual Address -- Points to (logically)
-
-960 -- 0xf0000000 -- page table holding first 4 MB of physical memory of kernel
-961 -- 0xf0400000 -- page table holding next 4 MB of physical memory of kernel
-...
-976 -- 0xf4000000 -- page table holding (part of) last 4 MB of physical memory of kernel page directory
-
-3. The kernel has set permission bits in its space, so the user cannot read or write kernel memory.
-
-4-5. This operating system can support 4 GB of physical memory; however, the size of the OS and page directory
-would reduce this slightly. The kernel page directory includes 16638 pages each taking up 1024 bytes, and the
-directory itself is negligible in comparison. These and memory holes only reduce the available memory by 
-roughly 10-30 MB, however, so 4 GB is close enough. If we used the maximum amount of physical memory,
-memory management would take up 1025 pages tables (including 1 directory) * 1024 pointers * 4 bytes = 
-4198400 bytes or about 4 MB.
-
-6. The instruction has not reached the end of its pipeline at these points, so EIP has not changed yet, so
-we must stall briefly before EIP is above KERNBASE.
-
-I extended the JOS monitor to show page mappings, change permissions, and dump memory in a given range.
-
-A few sample shell commands (See top of monitor.c for all commands):
-
-showmappings 0xf0000000 0xfffffff
-setperms 0xf0080000 0xf0090000 0x1
-dumpvmemory 0xf0000000 0xffffffff
-
-(Out of range memory is skipped.)
-
+1. 

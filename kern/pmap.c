@@ -99,7 +99,7 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-	if(PADDR(nextfree) + n > KERNBASE + NPDENTRIES * PGSIZE){
+	if(PADDR(nextfree) + n > KERNBASE + npages * PGSIZE){
         	panic ("Out of memory!");
         }
 
@@ -157,7 +157,12 @@ mem_init(void)
 	// each physical page, there is a corresponding struct Page in this
 	// array.  'npages' is the number of physical pages in memory.
 	// Your code goes here:
-        pages = (struct Page *) boot_alloc(npages * sizeof(struct Page));
+
+	size_t pages_size = npages * sizeof(struct Page);
+        pages = (struct Page *) boot_alloc(pages_size);
+
+	size_t envs_size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+	envs = (struct Env *) boot_alloc(envs_size);
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
@@ -185,7 +190,9 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_P | PTE_U);
+	boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_P | PTE_U);
+
+	boot_map_region(kern_pgdir, UENVS, envs_size, PADDR(envs), PTE_P | PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
