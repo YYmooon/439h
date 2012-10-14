@@ -24,3 +24,14 @@ memory management would take up 1025 pages tables (including 1 directory) * 1024
 
 6. The instruction has not reached the end of its pipeline at these points, so EIP has not changed yet, so
 we must stall briefly before EIP is above KERNBASE.
+
+I extended the JOS monitor to show page mappings, change permissions, and dump memory in a given range.
+
+A few sample shell commands (See top of monitor.c for all commands):
+
+showmappings 0xf0000000 0xfffffff
+setperms 0xf0080000 0xf0090000 0x1
+dumpvmemory 0xf0000000 0xffffffff
+
+(Out of range memory is skipped.)
+
