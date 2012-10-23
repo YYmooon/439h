@@ -118,7 +118,8 @@ env_init(void)
     env_free_list = NULL;
     int i = 0;
 
-    for(i = 0; i < NENVS; i++) {
+    for(i = 0; i < NENV; i++) {
+        envs[i].env_status = ENV_FREE;
         envs[i].env_link = env_free_list;
         env_free_list = &envs[i];
     }
@@ -184,9 +185,10 @@ env_setup_vm(struct Env *e)
     //    pp_ref for env_free to work correctly.
     //    - The functions in kern/pmap.h are handy.
 
-    e->env_pgdir = p;
+    e->env_pgdir = page2kva(p);
     memcpy(kern_pgdir, p, PGSIZE); // clone kernel page directory
     memset(p, 0, PDX(UTOP)-1); 
+    p->pp_ref++;
 
     // UVPT maps the env's own page table read-only.
     // Permissions: kernel R, user R
@@ -276,11 +278,10 @@ region_alloc(struct Env *e, void *va, size_t len)
     //   You should round va down, and round (va + len) up.
     //   (Watch out for corner-cases!)
 
-    va = (va % PGSIZE) * PGSIZE;
-    len = ((len % PGSIZE) + 1) * PGSIZE;
+    va = ROUNDDOWN(va, PGSIZE);
+    len = ROUNDUP(len, PGSIZE);
 
     size_t allocated = 0;
-    struct Page* = NULL;
     pte_t* entry = NULL;
 
     while(allocated < len) {
@@ -290,7 +291,9 @@ region_alloc(struct Env *e, void *va, size_t len)
         } else if(*entry & PTE_P) {
             panic("[region_alloc] trying to allocate over already mapped region!\n");
         } else {
-            *entry = page_alloc(ALLOC_ZERO) | PTE_P | PTE_U | PTE_W;
+            *entry = (unsigned int) page_alloc(ALLOC_ZERO) | PTE_P 
+                                                           | PTE_U 
+                                                           | PTE_W;
             allocated += PGSIZE;
         }
     }
@@ -350,32 +353,52 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
     //  What?  (See env_run() and env_pop_tf() below.)
 
     void* limit;
-    struct Elf* elf = binary;
-    if(elf->e_magic != ELF_MAGIC) panic("ELF image does not pass magic number test!\n");
+    struct Elf* elf = (void*) binary;
+    if(elf->e_magic != ELF_MAGIC) 
+        panic("ELF image does not pass magic number test!\n");
 
     limit = (binary + elf->e_phoff + (elf->e_phentsize * elf->e_phnum));
-    struct Proghdr* progh = (binary + elf->e_phoff);
-    while(progh < limit) {
+    struct Proghdr* progh = (struct Proghdr*) (binary + elf->e_phoff);
+
+    // switch into the target memory space so that we can edit it
+    uint32_t cr3 = rcr3();
+    lcr3(PADDR(e->env_pgdir));
+
+    while(progh < (struct Proghdr*) limit) {
         if(progh->p_type == ELF_PROG_LOAD) {
-            region_alloc(e, progh->p_va, progh->p_memsz);
-            memcpy(e->env_pgdir, binary + progh->p_offset, progh->p_va, progh->p_filesz);
+            region_alloc(e, 
+                    (void*)  progh->p_va, 
+                    (size_t) progh->p_memsz);
+
+            memcpy(binary + progh->p_offset, 
+                   (void*) progh->p_va, 
+                   progh->p_filesz);
         }
         progh += elf->e_phentsize;
     }
 
     limit = (binary + elf->e_shoff + (elf->e_shentsize * elf->e_shnum));
-    struct Secthdr* secth = (binary + elf->e_shoff);
-    while(secth < limit) {
-        region_alloc(e, secth->sh_addr, secth->sh_size);
-        memcpy(e->env_pgdir, binary + secth->sh_offset, secth->sh_addr, secth->sh_size);
+
+    struct Secthdr* secth = (struct Secthdr*) (void*) (binary + elf->e_shoff);
+    while(secth < (struct Secthdr*) limit) {
+        region_alloc(e, 
+                     (void*)  secth->sh_addr, 
+                     (size_t) secth->sh_size);
+
+        memset((void*) secth->sh_addr,
+               0, 
+               secth->sh_size);
+
         secth += elf->e_shentsize;
     }
 
     // Now map one page for the program's initial stack
     // at virtual address USTACKTOP - PGSIZE.
 
-    region_alloc(e, (USTACKTOP - PGSIZE), 1);
+    region_alloc(e, (void*) (USTACKTOP - PGSIZE), PGSIZE);
 
+    // switch back to our own memory space..
+    lcr3(cr3);
 }
 
 //
@@ -471,13 +494,13 @@ void
 env_pop_tf(struct Trapframe *tf)
 {
     __asm __volatile("movl %0,%%esp\n"
-        "\tpopal\n"
+        "\tpopal\n"                 /* load all registers from stack */
         "\tpopl %%es\n"
         "\tpopl %%ds\n"
-        "\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
+        "\taddl $0x8,%%esp\n"       /* skip tf_trapno and tf_errcode */
         "\tiret"
         : : "g" (tf) : "memory");
-    panic("iret failed");  /* mostly to placate the compiler */
+    panic("iret failed");           /* mostly to placate the compiler */
 }
 
 //
@@ -512,20 +535,12 @@ env_run(struct Env *e)
     // ENV_RUNNABLE     - no work needed
     // ENV_RUNNING      -> ENV_RUNNABLE, then continue
 
-    switch(e->env_status) {
-        case ENV_FREE:
-        case ENV_DYING:
-        case ENV_NOT_RUNNABLE:
-            panic("No idea how to run a env in this state, sorry!\n");
-
-        case ENV_RUNNING:
-            e->env_status = ENV_RUNNABLE;
-        case ENV_RUNNABLE:
-            curenv = e;
-            e->env_status = ENV_RUNNING;
-            e->env_runs++;
-            lcr3(
-            break;
+    if(curenv != e) {
+        curenv = e;
+        e->env_runs++;
+        lcr3(PADDR(e->env_pgdir));
     }
+
+    env_pop_tf(&e->env_tf);
 }
 

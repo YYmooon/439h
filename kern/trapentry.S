@@ -21,8 +21,8 @@
  * where NAME is the argument passed to TRAPHANDLER.
  */
 #define TRAPHANDLER(name, num)                                      \
-    .globl name;            /* define global symbol for 'name' */   \
-    .type name, @function;    /* symbol type is function */         \
+    .globl name;             /* define global symbol for 'name' */  \
+    .type name, @function;   /* symbol type is function */          \
     .align 2;                /* align function definition */        \
     name:                    /* function starts here */             \
     pushl $(num);                                                   \
@@ -47,9 +47,28 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
+TRAPHANDLER_NOEC(   trap_divide,   T_DIVIDE     );
+TRAPHANDLER_NOEC(   trap_debug,    T_DEBUG      );
+TRAPHANDLER_NOEC(   trap_nmi,      T_NMI        );
+TRAPHANDLER_NOEC(   trap_brkpt,    T_BRKPT      );
+TRAPHANDLER_NOEC(   trap_oflow,    T_OFLOW      );
+TRAPHANDLER_NOEC(   trap_bound,    T_BOUND      );
+TRAPHANDLER_NOEC(   trap_illop,    T_ILLOP      );
+TRAPHANDLER_NOEC(   trap_device,   T_DEVICE     );
+TRAPHANDLER(        trap_dblflt,   T_DBLFLT     );
+TRAPHANDLER(        trap_tss,      T_TSS        );
+TRAPHANDLER(        trap_segnp,    T_SEGNP      );
+TRAPHANDLER(        trap_gpflt,    T_GPFLT      );
+TRAPHANDLER(        trap_pgflt,    T_PGFLT      );
+TRAPHANDLER_NOEC(   trap_fperr,    T_FPERR      );
+TRAPHANDLER(        trap_align,    T_ALIGN      );
+TRAPHANDLER_NOEC(   trap_mchk,     T_MCHK       );
+TRAPHANDLER_NOEC(   trap_simderr,  T_SIMDERR    );
+TRAPHANDLER_NOEC(   trap_syscall,  T_SYSCALL    );
+TRAPHANDLER_NOEC(   trap_default,  T_DEFAULT    );
+
 _alltraps:
     /* procesor pushes registers in correct order implicitly */ 
-
     /* push the header of the TrapFrame struct */
 	pushw $0;
 	pushw %ds;
