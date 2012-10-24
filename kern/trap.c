@@ -34,7 +34,7 @@ static const char *trapname(int trapno)
 		"Non-Maskable Interrupt",
 		"Breakpoint",
 		"Overflow",
-                "BOUND Range Exceeded",
+        "BOUND Range Exceeded",
 		"Invalid Opcode",
 		"Device Not Available",
 		"Double Fault",
@@ -203,13 +203,16 @@ trap_dispatch(struct Trapframe *tf)
 	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
+	if (tf->tf_cs == GD_KT) {
+	    print_trapframe(tf);
 		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
-	}
+    } else if (tf->tf_trapno == T_BRKPT) {
+        monitor(tf);
+    } else {
+        print_trapframe(tf);
+        env_destroy(curenv);
+        return;
+    }
 }
 
 void

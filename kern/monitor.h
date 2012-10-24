@@ -21,5 +21,6 @@ int mon_clearperms(int argc, char **argv, struct Trapframe *tf);
 int mon_dumpvmemory(int argc, char **argv, struct Trapframe *tf);
 int mon_dumppmemory(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
+int mon_si(int argc, char **argv, struct Trapframe *tf);
 
 #endif	// !JOS_KERN_MONITOR_H

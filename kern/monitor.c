@@ -14,6 +14,7 @@
 #include <kern/kdebug.h>
 #include <kern/trap.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -34,6 +35,7 @@ static struct Command commands[] = {
 	{ "setperms", "Set specified permission bits in VA range. Args: begin, end, perm", mon_setperms },
 	{ "dumpvmemory", "Dump memory in VA range. Args: begin, end", mon_dumpvmemory },
 	{ "dumppmemory", "Dump memory in PA range. Args: begin, end", mon_dumppmemory },
+    { "si", "Step broken user program by one instruction", mon_si}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 #define EIP (*(int*)(ebp+0x1))
@@ -65,6 +67,21 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	cprintf("Kernel executable memory footprint: %dKB\n",
 		ROUNDUP(end - entry, 1024) / 1024);
 	return 0;
+}
+
+int
+mon_si(int argc, char** argv, struct Trapframe *tf)
+{
+    if(tf) {
+        curenv->env_tf = *tf;
+        lcr0(rcr0() | 1<<8); // set the single-step bit in cr0
+        assert(curenv && curenv->env_status == ENV_RUNNING);
+        env_run(curenv);
+        return 1; // unreachable, but w/e
+    } else {
+        cprintf("si: error: no program to single-step!\n");
+        return 0;
+    }
 }
 
 // sets specified permission bits
