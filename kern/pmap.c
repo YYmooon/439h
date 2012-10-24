@@ -11,12 +11,12 @@
 #include <kern/env.h>
 
 // These variables are set by i386_detect_memory()
-size_t npages;			// Amount of physical memory (in pages)
+size_t npages;                  // Amount of physical memory (in pages)
 static size_t npages_basemem;	// Amount of base memory (in pages)
 
 // These variables are set in mem_init()
-pde_t *kern_pgdir;		// Kernel's initial page directory
-struct Page *pages;		// Physical page state array
+pde_t *kern_pgdir;                  // Kernel's initial page directory
+struct Page *pages;                 // Physical page state array
 static struct Page *page_free_list;	// Free list of physical pages
 
 
@@ -52,7 +52,6 @@ i386_detect_memory(void)
 		npages_basemem * PGSIZE / 1024,
 		npages_extmem * PGSIZE / 1024);
 }
-
 
 // --------------------------------------------------------------
 // Set up memory mappings above UTOP.
@@ -175,8 +174,10 @@ mem_init(void)
 	page_init();
 
 	check_page_free_list(1);
+
 	check_page_alloc();
-	check_page();
+   
+    check_page();
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
@@ -252,6 +253,30 @@ mem_init(void)
 // The 'pages' array has one 'struct Page' entry per physical page.
 // Pages are reference counted, and free pages are kept on a linked list.
 // --------------------------------------------------------------
+
+void
+internal_check_free_page_list(unsigned int caller)
+{
+    struct Page *cur, *prev = NULL;
+    for (cur = page_free_list; cur != NULL; cur = cur->pp_link) {
+        if (cur < &pages[0] || cur >= &pages[npages])
+            panic("%u: invalid page in free page list: index: x%x, pointed to by page x%x", caller, (cur - &pages[0]), (prev == NULL) ? 0xFFFFFFFF : (prev - &pages[0]));
+        if (page2pa(cur) > 0x10000000)
+            panic("%u: invalid page PA: %08x", caller, page2pa(cur));
+        prev = cur;
+     }
+}
+
+unsigned int
+internal_free_page_list_len() {
+    unsigned int i = 0;
+    struct Page *cur = page_free_list;
+    while( cur != NULL ) {
+        i++;
+        cur = cur->pp_link;
+    }
+    return i;
+}
 
 //
 // Initialize page structure and memory free list.
@@ -350,7 +375,6 @@ page_free(struct Page *pp)
 
 	return;
 }
-
 //
 // Decrement the reference count on a page,
 // freeing it if there are no more refs.
@@ -384,6 +408,11 @@ page_decref(struct Page* pp)
 // Hint 3: look at inc/mmu.h for useful macros that mainipulate page
 // table and page directory entries.
 //
+// Page Directory structure notes
+//   The page dir is a linear array of pte_t* values, each one of which is the  
+//   __physical memory__ address for the start of the page which forms the second
+//   level of the page table.
+//
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
@@ -411,7 +440,6 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	
 	return (pte_t *) KADDR((physaddr_t)((pte_t *)PTE_ADDR(*pde)+PTX(va)));
 }
-
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
 // in the page table rooted at pgdir.  Size is a multiple of PGSIZE.
