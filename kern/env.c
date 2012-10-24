@@ -114,18 +114,18 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 void
 env_init(void)
 {
-    // Set up envs array
-    env_free_list = NULL;
-    int i = 0;
+	// Set up envs array
+	// LAB 3: Your code here.
+	int i;
+	for(i = NENV - 1; i >= 0; i--) {
+                envs[i].env_id = 0;
+		envs[i].env_status = ENV_FREE;
+                envs[i].env_link = env_free_list;
+                env_free_list = &envs[i];
+        }
 
-    for(i = 0; i < NENV; i++) {
-        envs[i].env_status = ENV_FREE;
-        envs[i].env_link = env_free_list;
-        env_free_list = &envs[i];
-    }
-
-    // Per-CPU part of the initialization
-    env_init_percpu();
+	// Per-CPU part of the initialization
+	env_init_percpu();
 }
 
 // Load GDT and segment descriptors.
@@ -162,39 +162,36 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-    int i;
-    struct Page *p = NULL;
+	int i;
+	struct Page *p = NULL;
 
-    // Allocate a page for the page directory
-    if (!(p = page_alloc(ALLOC_ZERO)))
-        return -E_NO_MEM;
+	// Allocate a page for the page directory
+	if (!(p = page_alloc(ALLOC_ZERO)))
+		return -E_NO_MEM;
 
-    // Now, set e->env_pgdir and initialize the page directory.
-    //
-    // Hint:
-    //    - The VA space of all envs is identical above UTOP
-    //    (except at UVPT, which we've set below).
-    //    See inc/memlayout.h for permissions and layout.
-    //    Can you use kern_pgdir as a template?  Hint: Yes.
-    //    (Make sure you got the permissions right in Lab 2.)
-    //    - The initial VA below UTOP is empty.
-    //    - You do not need to make any more calls to page_alloc.
-    //    - Note: In general, pp_ref is not maintained for
-    //    physical pages mapped only above UTOP, but env_pgdir
-    //    is an exception -- you need to increment env_pgdir's
-    //    pp_ref for env_free to work correctly.
-    //    - The functions in kern/pmap.h are handy.
+	// Now, set e->env_pgdir and initialize the page directory.
+	//
+	// Hint:
+	//    - The VA space of all envs is identical above UTOP
+	//	(except at UVPT, which we've set below).
+	//	See inc/memlayout.h for permissions and layout.
+	//	Can you use kern_pgdir as a template?  Hint: Yes.
+	//	(Make sure you got the permissions right in Lab 2.)
+	//    - The initial VA below UTOP is empty.
+	//    - You do not need to make any more calls to page_alloc.
+	//    - Note: In general, pp_ref is not maintained for
+	//	physical pages mapped only above UTOP, but env_pgdir
+	//	is an exception -- you need to increment env_pgdir's
+	//	pp_ref for env_free to work correctly.
+	//    - The functions in kern/pmap.h are handy.
 
-    e->env_pgdir = page2kva(p);
-    memcpy(kern_pgdir, p, PGSIZE); // clone kernel page directory
-    memset(p, 0, PDX(UTOP)-1); 
-    p->pp_ref++;
+	// LAB 3: Your code here.
+	e->env_pgdir = (pde_t *) page2kva(p);
+	memmove(e->env_pgdir, kern_pgdir, PGSIZE);
+        memset(e->env_pgdir, 0, PDX(UTOP) * sizeof(pde_t));
+        p->pp_ref++;
 
-    // UVPT maps the env's own page table read-only.
-    // Permissions: kernel R, user R
-    e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
-
-    return 0;
+	return 0;
 }
 
 //
@@ -270,33 +267,21 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 static void
 region_alloc(struct Env *e, void *va, size_t len)
 {
-    // LAB 3: Your code here.
-    // (But only if you need it for load_icode.)
-    //
-    // Hint: It is easier to use region_alloc if the caller can pass
-    //   'va' and 'len' values that are not page-aligned.
-    //   You should round va down, and round (va + len) up.
-    //   (Watch out for corner-cases!)
+	// LAB 3: Your code here.
+	// (But only if you need it for load_icode.)
+	//
+	// Hint: It is easier to use region_alloc if the caller can pass
+	//   'va' and 'len' values that are not page-aligned.
+	//   You should round va down, and round (va + len) up.
+	//   (Watch out for corner-cases!)
+	va = ROUNDDOWN(va, PGSIZE);
+	len = ROUNDUP(len + PGOFF(va), PGSIZE);
 
-    va = ROUNDDOWN(va, PGSIZE);
-    len = ROUNDUP(len, PGSIZE);
-
-    size_t allocated = 0;
-    pte_t* entry = NULL;
-
-    while(allocated < len) {
-        entry = pgdir_walk(e->env_pgdir, va + allocated, 1);
-        if(entry == NULL) {
-            panic("[region_alloc] could not allocate page required to map target range!\n");
-        } else if(*entry & PTE_P) {
-            panic("[region_alloc] trying to allocate over already mapped region!\n");
-        } else {
-            *entry = (unsigned int) page_alloc(ALLOC_ZERO) | PTE_P 
-                                                           | PTE_U 
-                                                           | PTE_W;
-            allocated += PGSIZE;
-        }
-    }
+	while(len > 0){
+		page_insert(e->env_pgdir, page_alloc(1), va, PTE_U | PTE_W);
+		va += PGSIZE;
+		len -= PGSIZE;
+	}
 }
 
 //
@@ -324,81 +309,64 @@ region_alloc(struct Env *e, void *va, size_t len)
 static void
 load_icode(struct Env *e, uint8_t *binary, size_t size)
 {
-    // Hints:
-    //  Load each program segment into virtual memory
-    //  at the address specified in the ELF section header.
-    //  You should only load segments with ph->p_type == ELF_PROG_LOAD.
-    //  Each segment's virtual address can be found in ph->p_va
-    //  and its size in memory can be found in ph->p_memsz.
-    //  The ph->p_filesz bytes from the ELF binary, starting at
-    //  'binary + ph->p_offset', should be copied to virtual address
-    //  ph->p_va.  Any remaining memory bytes should be cleared to zero.
-    //  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
-    //  Use functions from the previous lab to allocate and map pages.
-    //
-    //  All page protection bits should be user read/write for now.
-    //  ELF segments are not necessarily page-aligned, but you can
-    //  assume for this function that no two segments will touch
-    //  the same virtual page.
-    //
-    //  You may find a function like region_alloc useful.
-    //
-    //  Loading the segments is much simpler if you can move data
-    //  directly into the virtual addresses stored in the ELF binary.
-    //  So which page directory should be in force during
-    //  this function?
-    //
-    //  You must also do something with the program's entry point,
-    //  to make sure that the environment starts executing there.
-    //  What?  (See env_run() and env_pop_tf() below.)
+	// Hints:
+	//  Load each program segment into virtual memory
+	//  at the address specified in the ELF section header.
+	//  You should only load segments with ph->p_type == ELF_PROG_LOAD.
+	//  Each segment's virtual address can be found in ph->p_va
+	//  and its size in memory can be found in ph->p_memsz.
+	//  The ph->p_filesz bytes from the ELF binary, starting at
+	//  'binary + ph->p_offset', should be copied to virtual address
+	//  ph->p_va.  Any remaining memory bytes should be cleared to zero.
+	//  (The ELF header should have ph->p_filesz <= ph->p_memsz.)
+	//  Use functions from the previous lab to allocate and map pages.
+	//
+	//  All page protection bits should be user read/write for now.
+	//  ELF segments are not necessarily page-aligned, but you can
+	//  assume for this function that no two segments will touch
+	//  the same virtual page.
+	//
+	//  You may find a function like region_alloc useful.
+	//
+	//  Loading the segments is much simpler if you can move data
+	//  directly into the virtual addresses stored in the ELF binary.
+	//  So which page directory should be in force during
+	//  this function?
+	//
+	//  You must also do something with the program's entry point,
+	//  to make sure that the environment starts executing there.
+	//  What?  (See env_run() and env_pop_tf() below.)
 
-    void* limit;
-    struct Elf* elf = (void*) binary;
-    if(elf->e_magic != ELF_MAGIC) 
-        panic("ELF image does not pass magic number test!\n");
+	// LAB 3: Your code here.
+	struct Elf *elfhdr = (struct Elf *) binary;
 
-    limit = (binary + elf->e_phoff + (elf->e_phentsize * elf->e_phnum));
-    struct Proghdr* progh = (struct Proghdr*) (binary + elf->e_phoff);
+	if(elfhdr->e_magic != ELF_MAGIC){
+		panic("Invalid ELF image!\n");
+	}
 
-    // switch into the target memory space so that we can edit it
-    uint32_t cr3 = rcr3();
-    lcr3(PADDR(e->env_pgdir));
+	lcr3(PADDR(e->env_pgdir));
 
-    while(progh < (struct Proghdr*) limit) {
-        if(progh->p_type == ELF_PROG_LOAD) {
-            region_alloc(e, 
-                    (void*)  progh->p_va, 
-                    (size_t) progh->p_memsz);
+        struct Proghdr *ph = (struct Proghdr *) (binary + elfhdr->e_phoff);
+        struct Proghdr *end = ph + elfhdr->e_phnum;
 
-            memcpy(binary + progh->p_offset, 
-                   (void*) progh->p_va, 
-                   progh->p_filesz);
-        }
-        progh += elf->e_phentsize;
-    }
+	while(ph < end){
+		if(ph->p_type == ELF_PROG_LOAD){
+			region_alloc(e, (void *) ph->p_va, ph->p_memsz);
+                        memset((void *) ph->p_va, 0, ph->p_memsz);
+			memmove((void *) ph->p_va, binary + ph->p_offset, ph->p_filesz);
+		}
 
-    limit = (binary + elf->e_shoff + (elf->e_shentsize * elf->e_shnum));
+		ph++;
+	}
 
-    struct Secthdr* secth = (struct Secthdr*) (void*) (binary + elf->e_shoff);
-    while(secth < (struct Secthdr*) limit) {
-        region_alloc(e, 
-                     (void*)  secth->sh_addr, 
-                     (size_t) secth->sh_size);
+	lcr3(PADDR(kern_pgdir));
 
-        memset((void*) secth->sh_addr,
-               0, 
-               secth->sh_size);
+	// Now map one page for the program's initial stack
+	// at virtual address USTACKTOP - PGSIZE.
 
-        secth += elf->e_shentsize;
-    }
-
-    // Now map one page for the program's initial stack
-    // at virtual address USTACKTOP - PGSIZE.
-
-    region_alloc(e, (void*) (USTACKTOP - PGSIZE), PGSIZE);
-
-    // switch back to our own memory space..
-    lcr3(cr3);
+	// LAB 3: Your code here.
+        e->env_tf.tf_eip = elfhdr->e_entry;
+	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
 }
 
 //
@@ -411,10 +379,10 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 void
 env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
-    struct Env* e;
-    env_alloc(&e, 0);
-    load_icode(e, binary, size);
-    e->env_type = type;
+	// LAB 3: Your code here.
+	struct Env *env = NULL;
+	env_alloc(&env, 0);
+	load_icode(env, binary, size);
 }
 
 //
@@ -512,35 +480,35 @@ env_pop_tf(struct Trapframe *tf)
 void
 env_run(struct Env *e)
 {
-    // Step 1: If this is a context switch (a new environment is running):
-    //       1. Set the current environment (if any) back to
-    //          ENV_RUNNABLE if it is ENV_RUNNING (think about
-    //          what other states it can be in),
-    //       2. Set 'curenv' to the new environment,
-    //       3. Set its status to ENV_RUNNING,
-    //       4. Update its 'env_runs' counter,
-    //       5. Use lcr3() to switch to its address space.
-    // Step 2: Use env_pop_tf() to restore the environment's
-    //       registers and drop into user mode in the
-    //       environment.
+	// Step 1: If this is a context switch (a new environment is running):
+	//	   1. Set the current environment (if any) back to
+	//	      ENV_RUNNABLE if it is ENV_RUNNING (think about
+	//	      what other states it can be in),
+	//	   2. Set 'curenv' to the new environment,
+	//	   3. Set its status to ENV_RUNNING,
+	//	   4. Update its 'env_runs' counter,
+	//	   5. Use lcr3() to switch to its address space.
+	// Step 2: Use env_pop_tf() to restore the environment's
+	//	   registers and drop into user mode in the
+	//	   environment.
 
-    // Hint: This function loads the new environment's state from
-    //    e->env_tf.  Go back through the code you wrote above
-    //    and make sure you have set the relevant parts of
-    //    e->env_tf to sensible values.
+	// Hint: This function loads the new environment's state from
+	//	e->env_tf.  Go back through the code you wrote above
+	//	and make sure you have set the relevant parts of
+	//	e->env_tf to sensible values.
 
-    // ENV_FREE         -> panic
-    // ENV_DYING        -> panic
-    // ENV_NOT_RUNNABLE -> panic
-    // ENV_RUNNABLE     - no work needed
-    // ENV_RUNNING      -> ENV_RUNNABLE, then continue
+	// LAB 3: Your code here.
+	if(curenv != e){
+		if(e->env_status == ENV_RUNNING){
+			e->env_status = ENV_RUNNABLE;
+		}
 
-    if(curenv != e) {
-        curenv = e;
-        e->env_runs++;
-        lcr3(PADDR(e->env_pgdir));
-    }
+		curenv = e;
+		curenv->env_status = ENV_RUNNING;
+		curenv->env_runs++;
+        	lcr3(PADDR(curenv->env_pgdir));
+	}
 
-    env_pop_tf(&e->env_tf);
+	env_pop_tf(&curenv->env_tf);
 }
 
