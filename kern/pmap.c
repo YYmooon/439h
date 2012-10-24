@@ -99,7 +99,7 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 	// LAB 2: Your code here.
-	if(PADDR(nextfree) + n > KERNBASE + npages * PGSIZE){
+	if((physaddr_t)nextfree + n > KERNBASE + NPTENTRIES * PGSIZE){
         	panic ("Out of memory!");
         }
 
@@ -109,7 +109,8 @@ boot_alloc(uint32_t n)
 
 	if(n > 0){
 		result = nextfree;
-		nextfree = ROUNDUP((char *) (nextfree + n), PGSIZE);
+		nextfree = (char *) ((uint32_t) nextfree + n);
+		nextfree = ROUNDUP((char *) nextfree, PGSIZE);
 		return result;
 	}
 
@@ -134,9 +135,6 @@ mem_init(void)
 	// Find out how much memory the machine has (npages & npages_basemem).
 	i386_detect_memory();
 
-	// Remove this line when you're ready to test this function.
-	// panic("mem_init: This function is not finished\n");
-
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
@@ -157,16 +155,16 @@ mem_init(void)
 	// each physical page, there is a corresponding struct Page in this
 	// array.  'npages' is the number of physical pages in memory.
 	// Your code goes here:
-
 	size_t pages_size = npages * sizeof(struct Page);
         pages = (struct Page *) boot_alloc(pages_size);
-
-	size_t envs_size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
-	envs = (struct Env *) boot_alloc(envs_size);
+	memset(pages, 0, pages_size);
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	size_t envs_size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+        envs = (struct Env *) boot_alloc(envs_size);
+	memset(envs, 0, envs_size);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -190,9 +188,7 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_P | PTE_U);
-
-	boot_map_region(kern_pgdir, UENVS, envs_size, PADDR(envs), PTE_P | PTE_U);
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_P | PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -201,6 +197,7 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	boot_map_region(kern_pgdir, UENVS, envs_size, PADDR(envs), PTE_P | PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -347,9 +344,9 @@ page_free(struct Page *pp)
 	}
 	// Add to page free list.
 	pp->pp_link = page_free_list;
-	page_free_list = pp;
 	// Mark as free.
 	pp->pp_ref = 0;
+	page_free_list = pp;
 
 	return;
 }
@@ -393,8 +390,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	pde_t *pde = (pde_t *) (pgdir+PDX(va));
 	struct Page *page;
 
-	if(!((*pde) & PTE_P)){
-		if(!create){
+	if(((*pde) & PTE_P) == 0){
+		if(create == 0){
 			return NULL;
 		}
 
@@ -434,7 +431,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	for(k = 0; k < size/PGSIZE; k++){
 		pde = (pde_t *) (pgdir + PDX(va));
 		pte = pgdir_walk(pgdir, (void *) va, 1);
-		*pte = 0 | perm | PTE_P | (physaddr_t) (pa + PGSIZE * k);
+		*pte = 0 | perm | PTE_P | ((physaddr_t) (pa + PGSIZE * k));
 		va += PGSIZE;
 	}
 }
@@ -597,6 +594,26 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	perm |= PTE_U | PTE_P;
+	
+	pte_t *pte;
+	uintptr_t current_va;
+
+	for(current_va = (uintptr_t) va; current_va <= ((uintptr_t) va + len - 1); current_va += PGSIZE){
+		if(current_va >= ULIM){
+			user_mem_check_addr = current_va;
+			return -E_FAULT;
+		}
+
+		pte = pgdir_walk(env->env_pgdir, (void *) current_va, 0);
+
+		if(pte == NULL || (*pte & perm) != perm){
+			user_mem_check_addr = current_va;
+			return -E_FAULT;
+		}
+
+		current_va = ROUNDDOWN(current_va, PGSIZE);
+	}
 
 	return 0;
 }
