@@ -1,5 +1,17 @@
-Brian Schmitz
-bschmitz
-3
+Brian Schmitz (bschmitz), Reid McKenzie (reid) - RDM2755, <ID> - Lab 3 Answers
 
-1. 
+1. Having separate handlers allows the OS to specify exceptions to handle with specific defaults. More concretely, a catch-all handler would allow any software to cause any exception or interrupt with or without permission restrictions.
+
+There would be nothing strictly wrong with an interrupt system which only has one entry point for exception handling, so long as the hardware records the error code in a standardized fashion. Any OS or other system running on the hardware then would register only one handler which would then switch on the error code if it intended to provide different functionality on a by-error basis.
+
+However, that assumes uniform behavior on a by-exception basis. Some exceptions do not under the x86 specification push their error code and merely context switch through the trap handler table. JOS has the _alltraps structure and the various intermediate functions which redirect thereto so that it can cleanly create a uniform state on the stack for the `trap()` routine which actually implements JOS`s error handling. `trap()` expects a `Trapframe` struct, being a standard arrangement of registers and error data on the stack so JOS has all these handlers and _alltraps to set up the stack in the same structure as a `Trapframe` data block.
+
+Now as suggested earlier JOS alternatively could have special-purpose handlers for each error condition which do all the register and message printing which `trap()` does, but having `trap()` and `_alltraps` makes the code cleaner and easier to maintain in the long run at an extremely low cost in terms of error handling performance.
+
+2. I didn`t have have to change anything. It should produce vector 13 because a user-level program should not be able to affect the OS page fault handler. If the kernel actually allowed the instruction to invoke the kernel`s page fault handler, a user-level program could cause a double fault or system crash.
+
+User programs are not permissioned to `pgflt`. Only kernel-level code can `pgflt`. Consequently when the hardware looks up the fault handler it sees that the current runlevel doesn't line up with the permission on the `idt` entry, which causes the `gpfault` which the OS then handles.
+
+3. As suggested by my answer to Question 2, the runlevel at error time matters when signaling an exception. Consequently, if the SETGATE macro which defines the brkpt instruction was not given a runlevel or permission argument of 3, then user programs can`t signal a breakpoint and stall themselves, and would instead generate `gpflt`s as suggested by `user/sofint`'s failure to launch.
+
+4. Were it not for this policy which prohibits user level code from signaling certain conditions, it would be possible for user code to (ab)use the kernel's ability to manipulate processes to produce behavior in the kernel which may have undesired side effects. Say a user program had access to the `pgflt` signal, which caused the OS to map a page to the erroring page if none existed and to swap from disk if that page had been paged out. Then in theory a misbehaving process could force the OS to grant it access to all physical memory not inhabited and protected by the OS itself and thus force the paging of all other processes and data to disk. No real malicious intent is served by this, but it sure would inconvenience everything else running on the system. Hence only the OS can make the judgement call of processing a page fault. User programs can signal a page fault sure, but it gets filtered in through the `gpfault` handler which gives the OS the information that it is performing whatever action on behalf of a user process and therefore may have need of asserting access control policies instead of blindly correcting the error conditon.
