@@ -13,6 +13,26 @@
 extern struct Gatedesc idt[];
 extern struct Pseudodesc idt_pd;
 
+extern void trap_divide(void);
+extern void trap_debug(void);
+extern void trap_nmi(void);
+extern void trap_brkpt(void);
+extern void trap_oflow(void);
+extern void trap_bound(void);
+extern void trap_illop(void);
+extern void trap_device(void);
+extern void trap_dblflt(void);
+extern void trap_tss(void);
+extern void trap_segnp(void);
+extern void trap_gpflt(void);
+extern void trap_pgflt(void);
+extern void trap_fperr(void);
+extern void trap_align(void);
+extern void trap_mchk(void);
+extern void trap_simderr(void);
+extern void trap_syscall(void);
+extern void trap_default(void);
+
 void trap_init(void);
 void trap_init_percpu(void);
 void print_regs(struct PushRegs *regs);

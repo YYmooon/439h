@@ -2,15 +2,19 @@
 // controlling the kernel and exploring the system interactively.
 
 #include <inc/stdio.h>
+
 #include <inc/string.h>
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/mmu.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,8 +29,17 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "showmappings", "Display page directory info. Args: begin, end", mon_showmappings },
+	{ "resetperms", "Reset specified permission bits in VA range. Args: begin, end, perm", mon_resetperms },
+	{ "clearperms", "Clear specified permission bits in VA range. Args: begin, end, perm", mon_clearperms },
+	{ "setperms", "Set specified permission bits in VA range. Args: begin, end, perm", mon_setperms },
+	{ "dumpvmemory", "Dump memory in VA range. Args: begin, end", mon_dumpvmemory },
+	{ "dumppmemory", "Dump memory in PA range. Args: begin, end", mon_dumppmemory },
+    { "si", "Step broken user program by one instruction", mon_si}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
+#define EIP (*(int*)(ebp+0x1))
+
 
 /***** Implementations of basic kernel monitor commands *****/
 
@@ -57,10 +70,302 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 }
 
 int
+mon_si(int argc, char** argv, struct Trapframe *tf)
+{
+    if(tf) {
+        curenv->env_tf = *tf;
+        lcr0(rcr0() | 1<<8); // set the single-step bit in cr0
+        assert(curenv && curenv->env_status == ENV_RUNNING);
+        env_run(curenv);
+        return 1; // unreachable, but w/e
+    } else {
+        cprintf("si: error: no program to single-step!\n");
+        return 0;
+    }
+}
+
+// sets specified permission bits
+void
+set_perm(pde_t *pgdir, const void *va, int perm)
+{
+        pde_t *pde = (pde_t *) (pgdir+PDX(va));
+        pte_t *pte = (pte_t *) KADDR((physaddr_t)((pte_t *)PTE_ADDR(*pde)+PTX(va)));
+        *pte |= perm;
+}
+
+// clears specified permission bits
+void
+clear_perm(pde_t *pgdir, const void *va, int perm)
+{
+        pde_t *pde = (pde_t *) (pgdir+PDX(va));
+        pte_t *pte = (pte_t *) KADDR((physaddr_t)((pte_t *)PTE_ADDR(*pde)+PTX(va)));
+        *pte &= ~perm;
+}
+
+// resets specified permission bits
+void
+reset_perm(pde_t *pgdir, const void *va, int perm)
+{
+        pde_t *pde = (pde_t *) (pgdir+PDX(va));
+        pte_t *pte = (pte_t *) KADDR((physaddr_t)((pte_t *)PTE_ADDR(*pde)+PTX(va)));
+        *pte &= ~0xFFF;
+	*pte |= perm;
+}
+
+int
+mon_resetperms(int argc, char **argv, struct Trapframe *tf){
+	if(argc != 4){
+                cprintf("Needs 3 arguments: begin end perm\n");
+        }
+        else {
+
+                size_t i;
+
+                for( i = 0; i < npages; ++i){
+
+                        struct Page * page = &pages[i];
+                        if(page != NULL){
+                                char * end1;
+                                char * end2;
+				char * end3;
+                                uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
+                                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);
+				int perm = strtol(argv[3], &end3, 16);
+
+                                if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
+					reset_perm(kern_pgdir, page2kva(page), perm);
+				}
+			}
+		}
+	}
+
+	return 0;
+	
+}
+
+int
+mon_setperms(int argc, char **argv, struct Trapframe *tf){
+        if(argc != 4){
+                cprintf("Needs 3 arguments: begin end perm\n");
+        }
+        else {
+
+                size_t i;
+
+                for( i = 0; i < npages; ++i){
+
+                        struct Page * page = &pages[i];
+                        if(page != NULL){
+                                char * end1;
+                                char * end2;
+                                char * end3;
+                                uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
+                                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);
+                                int perm = strtol(argv[3], &end3, 16);
+
+                                if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
+                                       set_perm(kern_pgdir, page2kva(page), perm);
+                                }
+                        }
+                }
+        }
+
+        return 0;
+
+}
+
+int
+mon_clearperms(int argc, char **argv, struct Trapframe *tf){
+        if(argc != 4){
+                cprintf("Needs 3 arguments: begin end perm\n");
+        }
+        else {
+
+                size_t i;
+
+                for( i = 0; i < npages; ++i){
+
+                        struct Page * page = &pages[i];
+                        if(page != NULL){
+                                char * end1;
+                                char * end2;
+                                char * end3;
+                                uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
+                                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);
+                                int perm = strtol(argv[3], &end3, 16);
+
+                                if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
+                                        clear_perm(kern_pgdir, page2kva(page), perm);
+                                }
+                        }
+                }
+        }
+
+        return 0;
+
+}
+
+
+int
+mon_dumpvmemory(int argc, char **argv, struct Trapframe *tf){
+        if(argc != 3){
+                cprintf("Needs 2 arguments: begin end\n");
+        }
+        else {
+
+                size_t i;
+
+                for( i = 0; i < npages; ++i){
+
+                        struct Page * page = &pages[i];
+                        if(page != NULL){
+                                char * end1;
+                                char * end2;
+                                uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
+                                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);
+
+                                if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
+                                        cprintf("VA: %08x Content: %08x \n", page2kva(page), *((int *) page2kva(page)));
+                                }
+                        }
+                }
+        }
+
+        return 0;
+
+}
+
+int
+mon_dumppmemory(int argc, char **argv, struct Trapframe *tf){
+        if(argc != 3){
+                cprintf("Needs 2 arguments: begin end\n");
+        }
+        else {
+
+                size_t i;
+
+                for( i = 0; i < npages; ++i){
+
+                        struct Page * page = &pages[i];
+                        if(page != NULL){
+                                char * end1;
+                                char * end2;
+                                uintptr_t pa_lower_bound = strtol(argv[1], &end1, 16);
+                                uintptr_t pa_upper_bound = strtol(argv[2], &end2, 16);
+
+                                if(page2pa(page) >= ((physaddr_t) pa_lower_bound) && page2pa(page) <= ((physaddr_t) pa_upper_bound)){
+                                        cprintf("PA: %08x Content: %08x \n", page2pa(page), *((int *) page2kva(page)));
+                                }
+                        }
+                }
+        }
+
+        return 0;
+
+}
+
+
+pte_t
+get_perm(pde_t *pgdir, const void *va)
+{
+        pde_t *pde = (pde_t *) (pgdir+PDX(va));
+        pte_t *pte = (pte_t *) KADDR((physaddr_t)((pte_t *)PTE_ADDR(*pde)+PTX(va)));
+      	return *pte & 0xFFF;
+}
+
+int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf){
+	if(argc != 3){
+		cprintf("Needs 2 arguments: begin end\n");
+	}
+	else {
+
+		size_t i;
+
+		for( i = 0; i < npages; ++i){
+
+			struct Page * page = &pages[i];
+			if(page != NULL){
+				char * end1;
+				char * end2;
+				uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
+				uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);		
+			
+				if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
+
+					char perm_flags[22] = "---------------------";
+					pte_t perm = get_perm(kern_pgdir, page2kva(page));
+					if(perm & PTE_P){
+						perm_flags[0] = 'P';
+					}
+					if(perm & PTE_W){
+                                                perm_flags[2] = 'W';
+                                        }
+					if(perm & PTE_U){
+                                                perm_flags[4] = 'U';
+                                        }
+					if(perm & PTE_PWT){
+                                                perm_flags[6] = 'P';
+						perm_flags[7] = 'W';
+						perm_flags[8] = 'T';
+                                        }
+					if(perm & PTE_PCD){
+                                                perm_flags[10] = 'P';
+						perm_flags[11] = 'C';
+						perm_flags[12] = 'D';
+                                        }
+					if(perm & PTE_A){
+                                                perm_flags[14] = 'A';
+                                        }
+					if(perm & PTE_D){
+                                                perm_flags[16] = 'D';
+                                        }
+					if(perm & PTE_PS){
+                                                perm_flags[18] = 'P';
+						perm_flags[19] = 'S';
+                                        }
+					if(perm & PTE_G){
+                                                perm_flags[21] = 'G';
+                                        }
+
+					cprintf("PGNUM: %d  PDX: %d  PTX: %d  VA: %08x  PA: %08x  Perm: %s \n",
+					    PGNUM(page2kva(page)),
+					    PDX(page2kva(page)),
+					    PTX(page2kva(page)),
+					    page2kva(page), page2pa(page),
+					    perm_flags);
+
+				}
+				
+			}
+
+		}
+
+	}
+
+	return 0;
+}
+
+
+
+
+int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
-	return 0;
+  physaddr_t eip;
+  __asm __volatile("movl 4(%%ebp), %0":"=r" (eip));
+  physaddr_t ebp = read_ebp();
+
+  cprintf("Stack backtrace:\n");  
+  while(ebp != 0) {
+    physaddr_t* pa = (physaddr_t*) ebp;
+    cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
+        pa, eip, pa[2], pa[3], pa[3], pa[4], pa[5]);
+    ebp = *pa;
+  }
+  cprintf("...\n");
+
+  return 0;
 }
 
 

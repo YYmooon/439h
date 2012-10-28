@@ -25,23 +25,23 @@ typedef int32_t envid_t;
 // envid_ts less than 0 signify errors.  The envid_t == 0 is special, and
 // stands for the current environment.
 
-#define LOG2NENV		10
-#define NENV			(1 << LOG2NENV)
-#define ENVX(envid)		((envid) & (NENV - 1))
+#define LOG2NENV        10
+#define NENV            (1 << LOG2NENV)
+#define ENVX(envid)        ((envid) & (NENV - 1))
 
 // Values of env_status in struct Env
 enum {
-	ENV_FREE = 0,
-	ENV_DYING,
-	ENV_RUNNABLE,
-	ENV_RUNNING,
-	ENV_NOT_RUNNABLE
+    ENV_FREE = 0,
+    ENV_DYING,
+    ENV_RUNNABLE,
+    ENV_RUNNING,
+    ENV_NOT_RUNNABLE
 };
 
 // Special environment types
 enum EnvType {
-	ENV_TYPE_USER = 0,
-	ENV_TYPE_IDLE,
+    ENV_TYPE_USER = 0,
+    ENV_TYPE_IDLE,
 };
 
 struct Env {
