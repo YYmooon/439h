@@ -179,7 +179,7 @@ mem_init(void)
 
 	check_page_alloc();
    
-    check_page();
+	check_page();
 
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
@@ -275,7 +275,7 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	
 }
 
 // --------------------------------------------------------------
@@ -664,7 +664,12 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	size_t rounded_size = ROUNDUP(size, PGSIZE);
+	if(base + rounded_size > MMIOLIM){
+		panic("MMIOLIM exceeded!");
+	}
+	boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT);
+	return &base;
 }
 
 static uintptr_t user_mem_check_addr;
@@ -1172,3 +1177,4 @@ check_page_installed_pgdir(void)
 
 	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
+
