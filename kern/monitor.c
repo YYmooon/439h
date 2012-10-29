@@ -58,30 +58,24 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-    int *ebp = ((int*)read_ebp());
-    int offset;
-    struct Eipdebuginfo info;
+  physaddr_t eip;
+  __asm __volatile("movl 4(%%ebp), %0":"=r" (eip));
+  physaddr_t ebp = read_ebp();
 
-    while(1) {
-        if(0 == ebp) break;
-        cprintf("  ebp %08x  eip %08x  args", ebp, *(ebp+0x1));
-        for(offset=2; offset < 7; offset++) {
-            cprintf(" %08x", *(ebp+offset));
-        }
-        cprintf("\n");
+  cprintf("Stack backtrace:\n");  
+  while(ebp != 0) {
+    physaddr_t* pa = (physaddr_t*) ebp;
+    cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
+        pa, eip, pa[2], pa[3], pa[3], pa[4], pa[5]);
+    ebp = *pa;
+  }
+  cprintf("...\n");
 
-        //cprintf("%x\n", EIP);
-
-        debuginfo_eip(((uintptr_t) EIP), &info);
-        cprintf("         %s:%d: %.*s+%x\n", 
-                info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, (*(ebp+1)-info.eip_fn_addr));
-
-        ebp = ((int*)*ebp);
-    }
-	return 0;
+  return 0;
 }
 
 /***** Kernel monitor command interpreter *****/
