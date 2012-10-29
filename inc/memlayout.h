@@ -1,3 +1,4 @@
+
 #ifndef JOS_INC_MEMLAYOUT_H
 #define JOS_INC_MEMLAYOUT_H
 
@@ -139,10 +140,54 @@
 // The location of the user-level STABS data structure
 #define USTABDATA	(PTSIZE / 2)
 
+// Physical address of startup code for non-boot CPUs (APs)
+#define MPENTRY_PADDR	0x7000
+
 #ifndef __ASSEMBLER__
 
 typedef uint32_t pte_t;
 typedef uint32_t pde_t;
+
+#if JOS_USER
+/*
+ * The page directory entry corresponding to the virtual address range
+ * [UVPT, UVPT + PTSIZE) points to the page directory itself.  Thus, the page
+ * directory is treated as a page table as well as a page directory.
+ *
+ * One result of treating the page directory as a page table is that all PTEs
+ * can be accessed through a "virtual page table" at virtual address UVPT (to
+ * which vpt will be set in lib/entry.S).  The PTE for page number N is stored in
+ * vpt[N].  (It's worth drawing a diagram of this!)
+ *
+ * A second consequence is that the contents of the current page directory
+ * will always be available at virtual address (UVPT + (UVPT >> PGSHIFT)), to
+ * which vpd will be set in lib/entry.S.
+ */
+extern volatile pte_t vpt[];     // VA of "virtual page table"
+extern volatile pde_t vpd[];     // VA of current page directory
+#endif
+
+/*
+ * Page descriptor structures, mapped at UPAGES.
+ * Read/write to the kernel, read-only to user programs.
+ *
+ * Each struct Page stores metadata for one physical page.
+ * Is it NOT the physical page itself, but there is a one-to-one
+ * correspondence between physical pages and struct Page's.
+ * You can map a Page * to the corresponding physical address
+ * with page2pa() in kern/pmap.h.
+ */
+struct Page {
+	// Next page on the free list.
+	struct Page *pp_link;
+
+	// pp_ref is the count of pointers (usually in page table entries)
+	// to this page, for pages allocated using page_alloc.
+	// Pages allocated at boot time using pmap.c's
+	// boot_alloc do not have valid reference count fields.
+
+	uint16_t pp_ref;
+};
 
 #endif /* !__ASSEMBLER__ */
 #endif /* !JOS_INC_MEMLAYOUT_H */
