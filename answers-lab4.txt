@@ -1,3 +1,15 @@
-Brian Schmitz (bschmitz), Reid McKenzie (reid) - RDM2755, <ID> - Lab 3 Answers
+Brian Schmitz (bschmitz), Reid McKenzie (reid) - RDM2755, <ID> - Lab 4 Answers
 
+#Question 1 - boot.S vs mpentry.S
+`MPBOOTPHYS()` serves to __compute__ the addresses of the values on which `mpentry.S` depends
+instead of relying upon the linker to fill in the blanks at compile time. This is called for
+because `mpentry.S` is not loaded the same way that `boot.S` is. `boot.S` is loaded by 
+the BIOS into memory above the BIOS defined flags (page 0) or about physical address 0x1000.
+`MPENTRY_PADDR`, the base address above which the application processors' code is loaded and
+their PCs initialized is physical address 0x7000 however the compiler is not aware of this
+difference. Were the compiler-generated linking to be used directly, then terrible things
+would happen as the application processors would be looking for their values in entirely
+the wrong place. Hence the `MPBOOTPHYS()` macro which performs the required address conversion.
+
+#Question 2
 
