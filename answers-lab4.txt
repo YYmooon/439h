@@ -9,7 +9,6 @@ the BIOS into memory above the BIOS defined flags (page 0) or about physical add
 their PCs initialized is physical address 0x7000 however the compiler is not aware of this
 difference. Were the compiler-generated linking to be used directly, then terrible things
 would happen as the application processors would be looking for their values in entirely
-the wrong place. Hence the `MPBOOTPHYS()` macro which performs the required address conversion.
+the wrong place. Hence the `MPBOOTPHYS()` macro which performs the required address conversion. conversion.
 
 #Question 2
-

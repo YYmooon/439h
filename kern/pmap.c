@@ -338,8 +338,7 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i;
-
+	
 #define RANGE(i, min, max) (i >= min) && (i <= max) ? 1 : 0
 #define UNUSABLE(i)        ((i == 0) |\
                             (i == MPENTRY_PADDR) |\
