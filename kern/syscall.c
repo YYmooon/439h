@@ -8,9 +8,10 @@
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/trap.h>
+#include <kern/sched.h>
 #include <kern/syscall.h>
 #include <kern/console.h>
-#include <kern/sched.h>
+#include <kern/spinlock.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -67,6 +68,7 @@ sys_env_destroy(envid_t envid)
 static void
 sys_yield(void)
 {
+    lock_kernel();
 	sched_yield();
 }
 

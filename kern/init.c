@@ -72,8 +72,7 @@ i386_init(void)
 #endif // TEST*
 
 	// Schedule and run the first user environment!
-    spin_unlock(&kernel_lock)
-	sched_yield();
+    sched_yield();
 }
 
 // While boot_aps is booting a given CPU, it communicates the per-core
@@ -112,8 +111,8 @@ boot_aps(void)
 void
 mp_main(void)
 {
-    spin_lock(&kernel_lock);
-	// We are in high EIP now, safe to switch to kern_pgdir 
+	lock_kernel();
+    // We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
