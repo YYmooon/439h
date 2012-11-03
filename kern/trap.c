@@ -13,6 +13,7 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
+#include <kern/kdebug.h>
 
 static struct Taskstate ts;
 
@@ -318,9 +319,12 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 3: Your code here.
 	if((tf->tf_cs & 3) == 0){
+        struct Eipdebuginfo dbg;
+        debuginfo_eip(tf->tf_eip, &dbg);
 		cprintf("kernel-mode page fault!\n");
-        print_trapframe(tf);
         cprintf("environment %08x faulted on VA 0x%x\n", curenv->env_id, fault_va);
+        cprintf("in file %s, line %u\n", dbg.eip_file, dbg.eip_line);
+        print_trapframe(tf);
         panic("\0");
 	}
 
