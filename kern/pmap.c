@@ -275,16 +275,14 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-    unsigned i;
-    for(i = 0; i < NCPU; i++) {
-        unsigned kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
-        boot_map_region(kern_pgdir,
-                        kstacktop_i - KSTKSIZE, 
-                        KSTKSIZE, 
-                        PADDR(&percpu_kstacks[i]), 
-                        PTE_P | PTE_W);
-
-    }    
+   unsigned i;
+   for(i = 0; i < NCPU; i++){
+      boot_map_region(kern_pgdir,
+          KSTACKTOP - (KSTKSIZE + KSTKGAP) * i - KSTKSIZE,
+          KSTKSIZE,
+          PADDR(percpu_kstacks[i]),
+          PTE_P | PTE_W);
+   }
 }
 
 // --------------------------------------------------------------
@@ -683,7 +681,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 		panic("MMIOLIM exceeded!");
 	}
 	boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT | PTE_W);
-    unsigned old_base = base;
+    unsigned old_base = (unsigned) base;
     base += rounded_size;
 	return (void*) old_base;
 }
