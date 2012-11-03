@@ -345,7 +345,7 @@ page_init(void)
 
 	for(i = 1; i < npages_basemem; i++){
 		if(i == MPENTRY_PADDR/PGSIZE){
-			pages[0].pp_ref = 1;
+			pages[i].pp_ref = 1;
 		}
 		else {
 			pages[i].pp_ref = 0;
