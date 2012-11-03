@@ -344,6 +344,7 @@ page_init(void)
                             (i == MPENTRY_PADDR) |\
                             RANGE(i, IOPHYSMEM, (unsigned) PADDR(boot_alloc(0)-1)))
 
+    size_t i;
     for(i = 0; i < npages; i++) {
         if(UNUSABLE(i * PGSIZE)) {
             cprintf("[reid] Page %u unusable!\n", i);
