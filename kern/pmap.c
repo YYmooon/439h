@@ -347,7 +347,6 @@ page_init(void)
     size_t i;
     for(i = 0; i < npages; i++) {
         if(UNUSABLE(i * PGSIZE)) {
-            cprintf("[reid] Page %u unusable!\n", i);
             pages[i].pp_ref = 9001; // IT'S OVER NINE THOUSAND
         } else {
     	    pages[i].pp_ref = 0;
