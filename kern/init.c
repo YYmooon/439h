@@ -23,7 +23,9 @@ i386_init(void)
 {
 	extern char edata[], end[];
 
-	// Before doing anything else, complete the ELF loading process.
+    __spin_initlock(&kernel_lock, "Big Kernel Lock"); 
+	
+    // Before doing anything else, complete the ELF loading process.
 	// Clear the uninitialized global data (BSS) section of our program.
 	// This ensures that all static/global variables start out zero.
 	memset(edata, 0, end - edata);
@@ -53,7 +55,8 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
-	boot_aps();
+	lock_kernel();
+    boot_aps();
 
 	// Should always have idle processes at first.
 	int i;
@@ -69,6 +72,7 @@ i386_init(void)
 #endif // TEST*
 
 	// Schedule and run the first user environment!
+    spin_unlock(&kernel_lock)
 	sched_yield();
 }
 
@@ -108,6 +112,7 @@ boot_aps(void)
 void
 mp_main(void)
 {
+    spin_lock(&kernel_lock);
 	// We are in high EIP now, safe to switch to kern_pgdir 
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
@@ -122,9 +127,7 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
-	// Remove this after you finish Exercise 4
-	for (;;);
+    sched_yield(); // free the kernel lock in the scheduler
 }
 
 /*

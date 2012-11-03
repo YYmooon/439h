@@ -274,8 +274,10 @@ trap(struct Trapframe *tf)
 		// Trapped from user mode.
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
-		// LAB 4: Your code here.
-		assert(curenv);
+        
+		kernel_lock();
+
+        assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
@@ -303,9 +305,10 @@ trap(struct Trapframe *tf)
 	// scheduled, so we should return to the current environment
 	// if doing so makes sense.
 	if (curenv && curenv->env_status == ENV_RUNNING)
+        unlock_kernel();
 		env_run(curenv);
 	else
-		sched_yield();
+		sched_yield(); // unlocks the kernel itself
 }
 
 

@@ -1,5 +1,5 @@
 #include <inc/assert.h>
-
+#include <kern/spinlock.h>
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
@@ -49,5 +49,6 @@ sched_yield(void)
 	idle = &envs[cpunum()];
 	if (!(idle->env_status == ENV_RUNNABLE || idle->env_status == ENV_RUNNING))
 		panic("CPU %d: No idle environment!", cpunum());
+    unlock_kernel();
 	env_run(idle);
 }
