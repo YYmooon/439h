@@ -11,6 +11,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/spinlock.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -67,6 +68,7 @@ sys_env_destroy(envid_t envid)
 static void
 sys_yield(void)
 {
+    lock_kernel();
 	sched_yield();
 }
 
@@ -283,6 +285,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	else if(syscallno == SYS_env_destroy) {
 		return sys_env_destroy((envid_t) a1);
 	}
+    else if(syscallno == SYS_yield) {
+        sys_yield();
+        return 0;
+    }
 	else {
 		return -E_INVAL;
 	}
