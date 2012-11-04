@@ -244,7 +244,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
     //   check the current permissions on the page.
 
     // LAB 4: Your code here.
-    panic("sys_page_map not implemented");
+   panic("sys_page_unmap not implemented");
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -260,7 +260,20 @@ sys_page_unmap(envid_t envid, void *va)
     // Hint: This function is a wrapper around page_remove().
 
     // LAB 4: Your code here.
-    panic("sys_page_unmap not implemented");
+    struct Env *env;
+    int res;
+    res = envid2env(envid, &env, 1);
+
+    if(res < 0)
+        // -E_BAD_ENV
+        return res;
+
+    if((unsigned) va >= UTOP || PGOFF(va))
+        // not page alligned
+        return -E_INVAL;
+
+    page_remove(env->env_pgdir, va);
+    return 0;
 }
 
 // Try to send 'value' to the target env 'envid'.
