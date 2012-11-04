@@ -323,7 +323,8 @@ page_fault_handler(struct Trapframe *tf)
         struct Eipdebuginfo dbg;
         debuginfo_eip(tf->tf_eip, &dbg);
 		cprintf("kernel-mode page fault!\n");
-        cprintf("environment %08x faulted on VA 0x%x\n", curenv->env_id, fault_va);
+        cprintf("environment %08x faulted on VA 0x%x\n", 
+                curenv ? curenv->env_id : -1, fault_va);
         cprintf("in file %s, line %u\n", dbg.eip_file, dbg.eip_line);
         print_trapframe(tf);
         panic("\0");
