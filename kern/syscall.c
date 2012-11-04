@@ -78,7 +78,6 @@ sys_yield(void)
 static envid_t
 sys_exofork(void)
 {
-    cprintf("[sys_exofork] no I'm not mute...\n");
     // Create the new environment with env_alloc(), from kern/env.c.
     // It should be left as env_alloc created it, except that
     // status is set to ENV_NOT_RUNNABLE, and the register set is copied
@@ -87,15 +86,18 @@ sys_exofork(void)
 
     // LAB 4: Your code here.
     struct Env* e;
-    unsigned res = env_alloc(&e, 0);
-    if(res < 0) 
-        if(res == -E_NO_FREE_ENV)
+    unsigned res = env_alloc(&e, curenv->env_id);
+    if(res < 0) {
+        if(res == -E_NO_FREE_ENV) {
             cprintf("[sys_exofork] no free envs!\n");
-        if(res == -E_NO_MEM)
+        } if(res == -E_NO_MEM) {
             cprintf("[sys_exofork] no free mem!\n");
-        return res; // -E_NO_FREE_ENV, -E_NO_MEM
+        } return res; // -E_NO_FREE_ENV, -E_NO_MEM
+    }
     e->env_status = ENV_NOT_RUNNABLE;
-    e->env_tf.tf_regs = curenv->env_tf.tf_regs; // copy register state
+    e->env_tf = curenv->env_tf;                 // copy register state
+    cprintf("[sys_exofork] child epi %08x\n",
+            e->env_tf.tf_eip);
     e->env_tf.tf_regs.reg_eax = 0;              // set child return code
     return e->env_id;                           // return the child's env. id
 }
@@ -117,36 +119,14 @@ sys_env_set_status(envid_t envid, int status)
     // envid's status.
 
     // LAB 4: Your code here.
-    struct Env* e;
-    int res = envid2env(envid, &e, 1);
-    if(res < 0) return res;             // -E_BAD_ENV
-
-    if(status == ENV_FREE)
-        // a user should not be able to mark an environment as free,
-        // that should be done by syscalling sys_env_destroy.
+    if(status != ENV_RUNNABLE || status != ENV_NOT_RUNNABLE)
         return -E_INVAL;
 
-    if(e->env_type == ENV_TYPE_IDLE) {
-        if((status == ENV_DYING) ||
-           (status == ENV_RUNNABLE))
-            // This code prevents users from setting idle environments'
-            // status flags to the following values:
-            //  - ENV_DYING     a user shouldn't be able to kill a kernel env
-            //  - ENV_RUINNABLE idle envs can only be entered by the kernel
-            return -E_INVAL;
-    } else {
-        if((status == ENV_DYING)        ||
-           (status == ENV_RUNNABLE)     ||
-           (status == ENV_RUNNING)      ||
-           (status == ENV_NOT_RUNNABLE)) {
-            // if the status is legal...
-            e->env_status = status;
-        } else {
-            // don't let envs enter states which aren't valid states
-            // according to the env states enum
-            return -E_INVAL;
-        }
-    }
+    struct Env* e;
+    int res = envid2env(envid, &e, 1);
+    if(res < 0) return res;
+    e->env_status = status;
+    return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -382,7 +362,7 @@ sys_ipc_recv(void *dstva)
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
-    cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
+    //cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
     // Call the function corresponding to the 'syscallno' parameter.
     // Return any appropriate return value.
     // LAB 3: Your code here.
