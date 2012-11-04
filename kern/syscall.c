@@ -78,6 +78,7 @@ sys_yield(void)
 static envid_t
 sys_exofork(void)
 {
+    cprintf("[sys_exofork] no I'm not mute...\n");
     // Create the new environment with env_alloc(), from kern/env.c.
     // It should be left as env_alloc created it, except that
     // status is set to ENV_NOT_RUNNABLE, and the register set is copied
@@ -86,8 +87,13 @@ sys_exofork(void)
 
     // LAB 4: Your code here.
     struct Env* e;
-    unsigned res = env_alloc(&e, curenv->env_id);
-    if(res < 0) return res; // -E_NO_FREE_ENV, -E_NO_MEM
+    unsigned res = env_alloc(&e, 0);
+    if(res < 0) 
+        if(res == -E_NO_FREE_ENV)
+            cprintf("[sys_exofork] no free envs!\n");
+        if(res == -E_NO_MEM)
+            cprintf("[sys_exofork] no free mem!\n");
+        return res; // -E_NO_FREE_ENV, -E_NO_MEM
     e->env_status = ENV_NOT_RUNNABLE;
     e->env_tf.tf_regs = curenv->env_tf.tf_regs; // copy register state
     e->env_tf.tf_regs.reg_eax = 0;              // set child return code
@@ -188,17 +194,23 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     struct Page* p;
 
     int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
-    if(perm_check) 
+    if(perm_check) {
+        cprintf("[sys_page_alloc] ERROR: the permission bits are off: %08x\n", perm_check);
         // the permission bits are wrong..
         return -E_INVAL;
+    }
 
-    if(((unsigned) va % PGSIZE) != 0)
+    if(((unsigned) va % PGSIZE) != 0) {
         // the VA is not page-aligned
+        cprintf("[sys_page_alloc] ERROR: the VA is not page alligned\n");
         return -E_INVAL;
+    }
 
-    if((unsigned) va >= UTOP)
+    if((unsigned) va >= UTOP) {
         // the VA is above UTOP
+        cprintf("[sys_page_alloc] ERROR: the VA is out of user space\n");
         return -E_INVAL;
+    }
 
     if((p = page_alloc(ALLOC_ZERO))) {
         // nonzero return value, all is well so far
