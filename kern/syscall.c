@@ -173,9 +173,11 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     // LAB 4: Your code here.
     struct Page* p;
 
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check) {
-        cprintf("[sys_page_alloc] ERROR: the permission bits are off: %08x\n", perm_check);
+        cprintf("[sys_page_alloc] ERROR: the permission bits are off\n");
+        cprintf("[sys_page_alloc] argument: %08x delta: %08x legal perms: %08x\n",
+                perm, perm_check, PTE_AVAIL | PTE_W | PTE_P | PTE_U);
         // the permission bits are wrong..
         return -E_INVAL;
     }
@@ -250,7 +252,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
         // not page alligned or out of legal range
         return -E_INVAL;
 
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check)
         // the permission bits are wrong..
         // will only catch perm bits that should never be set
