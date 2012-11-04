@@ -29,15 +29,21 @@ sched_yield(void)
 	// below to switch to this CPU's idle environment.
 
 	// LAB 4: Your code here.
+    int cur_cpunum = curenv->env_cpunum;
 
-	// For debugging and testing purposes, if there are no
-	// runnable environments other than the idle environments,
-	// drop into the kernel monitor.
-	for (i = 0; i < NENV; i++) {
+	i = (cur_cpunum + 1) % NCPU; 
+    while(i != cur_cpunum) {
 		if (envs[i].env_type != ENV_TYPE_IDLE &&
 		    (envs[i].env_status == ENV_RUNNABLE ||
-		     envs[i].env_status == ENV_RUNNING))
-			break;
+		    ((envs[i].env_status == ENV_RUNNING) &&
+             (envs[i].env_cpunum == cur_cpunum)))) {
+
+            envs[i].env_status = ENV_RUNNING;
+            env_run(&envs[i]);
+
+        } else {
+            i = (i + 1) % NCPU;
+        }
 	}
 	if (i == NENV) {
 		cprintf("No more runnable environments!\n");
