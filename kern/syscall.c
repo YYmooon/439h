@@ -220,10 +220,12 @@ sys_page_alloc(envid_t envid, void *va, int perm)
             return 0;
         } else {
             page_free(p);
+            cprintf("[sys_page_alloc] ERROR: page_insert returned %d\n", i);
             return i;
         }
     } else {
         // no page was allocated, die
+        cprintf("[sys_page_alloc] ERROR: no free memory\n");
         return -E_NO_MEM;
     }
 }
@@ -380,6 +382,7 @@ sys_ipc_recv(void *dstva)
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
+    cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
     // Call the function corresponding to the 'syscallno' parameter.
     // Return any appropriate return value.
     // LAB 3: Your code here.
@@ -399,6 +402,21 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     else if(syscallno == SYS_yield) {
         sys_yield();
         return 0; // unreachable but keep the compiler happy
+    }
+    else if(syscallno == SYS_page_alloc) {
+        return sys_page_alloc((envid_t) a1, (void*) a2, (int) a3);
+    }
+    else if(syscallno == SYS_exofork) {
+        return sys_exofork();
+    }
+    else if(syscallno == SYS_page_map) {
+        return sys_page_map((envid_t) a1, (void*) a2, (envid_t) a3, (void*) a4, (int) a5);
+    }
+    else if(syscallno == SYS_page_unmap) {
+        return sys_page_unmap((envid_t) a1, (void*) a2);
+    }
+    else if(syscallno == SYS_env_set_status) {
+        return sys_env_set_status((envid_t) a1, (int) a2);
     }
     else {
         return -E_INVAL;
