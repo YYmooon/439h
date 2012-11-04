@@ -85,7 +85,13 @@ sys_exofork(void)
     // will appear to return 0.
 
     // LAB 4: Your code here.
-    panic("sys_exofork not implemented");
+    struct Env* e;
+    unsigned res = env_alloc(&e, curenv->env_id);
+    if(res < 0) return res; // -E_NO_FREE_ENV, -E_NO_MEM
+    e->env_status = ENV_NOT_RUNNABLE;
+    e->env_tf.tf_regs = curenv->env_tf.tf_regs; // copy register state
+    e->env_tf.tf_regs.reg_eax = 0;              // set child return code
+    return e->env_id;                           // return the child's env. id
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -105,7 +111,36 @@ sys_env_set_status(envid_t envid, int status)
     // envid's status.
 
     // LAB 4: Your code here.
-    panic("sys_env_set_status not implemented");
+    struct Env* e;
+    int res = envid2env(envid, &e, 1);
+    if(res < 0) return res;             // -E_BAD_ENV
+
+    if(status == ENV_FREE)
+        // a user should not be able to mark an environment as free,
+        // that should be done by syscalling sys_env_destroy.
+        return -E_INVAL;
+
+    if(e->env_type == ENV_TYPE_IDLE) {
+        if((status == ENV_DYING) ||
+           (status == ENV_RUNNABLE))
+            // This code prevents users from setting idle environments'
+            // status flags to the following values:
+            //  - ENV_DYING     a user shouldn't be able to kill a kernel env
+            //  - ENV_RUINNABLE idle envs can only be entered by the kernel
+            return -E_INVAL;
+    } else {
+        if((status == ENV_DYING)        ||
+           (status == ENV_RUNNABLE)     ||
+           (status == ENV_RUNNING)      ||
+           (status == ENV_NOT_RUNNABLE)) {
+            // if the status is legal...
+            e->env_status = status;
+        } else {
+            // don't let envs enter states which aren't valid states
+            // according to the env states enum
+            return -E_INVAL;
+        }
+    }
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -150,7 +185,35 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     //   allocated!
 
     // LAB 4: Your code here.
-    panic("sys_page_alloc not implemented");
+    struct Page* p;
+
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
+    if(perm_check) 
+        // the permission bits are wrong..
+        return -E_INVAL;
+
+    if(((unsigned) va % PGSIZE) != 0)
+        // the VA is not page-aligned
+        return -E_INVAL;
+
+    if((unsigned) va >= UTOP)
+        // the VA is above UTOP
+        return -E_INVAL;
+
+    if((p = page_alloc(ALLOC_ZERO))) {
+        // nonzero return value, all is well so far
+        int i = page_insert(curenv->env_pgdir, p, va, PTE_P | PTE_U | perm);
+        if(i == 0) {
+            // all is well
+            return 0;
+        } else {
+            page_free(p);
+            return i;
+        }
+    } else {
+        // no page was allocated, die
+        return -E_NO_MEM;
+    }
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
