@@ -36,7 +36,7 @@ get_caller_pcs(uint32_t pcs[])
 }
 
 // Check whether this CPU is holding the lock.
-static int
+int
 holding(struct spinlock *lock)
 {
     return lock->locked && lock->cpu == thiscpu;
@@ -73,6 +73,7 @@ spin_lock(struct spinlock *lk)
 
     // Record info about lock acquisition for debugging.
 #ifdef DEBUG_SPINLOCK
+//    cprintf("CPU %d has aquired lock %s\n", cpunum(), lk->name);
     lk->cpu = thiscpu;
     get_caller_pcs(lk->pcs);
 #endif
@@ -117,4 +118,5 @@ spin_unlock(struct spinlock *lk)
     // The xchg being asm volatile ensures gcc emits it after
     // the above assignments (and after the critical section).
     xchg(&lk->locked, 0);
+//    cprintf("CPU %d has freed lock %s\n", cpunum(), lk->name);
 }

@@ -67,6 +67,7 @@ sys_env_destroy(envid_t envid)
 static void
 sys_yield(void)
 {
+    if(cpunum() >= NCPU) cprintf("[%08x] yielding\n", curenv->env_id);
     sched_yield();
 }
 
@@ -282,6 +283,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     }
     else if(syscallno == SYS_env_destroy) {
         return sys_env_destroy((envid_t) a1);
+    }
+    else if(syscallno == SYS_yield) {
+        sys_yield();
+        return 0; // unreachable but keep the compiler happy
     }
     else {
         return -E_INVAL;

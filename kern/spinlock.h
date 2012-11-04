@@ -22,7 +22,7 @@ struct spinlock {
 void __spin_initlock(struct spinlock *lk, char *name);
 void spin_lock(struct spinlock *lk);
 void spin_unlock(struct spinlock *lk);
-
+int  holding(struct spinlock *lk);
 #define spin_initlock(lock)   __spin_initlock(lock, #lock)
 
 extern struct spinlock kernel_lock;
