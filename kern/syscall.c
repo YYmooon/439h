@@ -244,7 +244,31 @@ sys_page_map(envid_t srcenvid, void *srcva,
     //   check the current permissions on the page.
 
     // LAB 4: Your code here.
-   panic("sys_page_unmap not implemented");
+    int res;
+    struct Env * src, * dst;
+    res =  envid2env(srcenvid, &src, 1);
+    if(res) return res;
+    res = envid2env(dstenvid, &dst, 1);
+    if(res) return res;
+
+    if(((uint32_t) srcva >= UTOP || PGOFF(srcva)) || 
+       ((uint32_t) dstva >= UTOP || PGOFF(dstva)))
+        // not page alligned or out of legal range
+        return -E_INVAL;
+
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
+    if(perm_check)
+        // the permission bits are wrong..
+        // will only catch perm bits that should never be set
+        return -E_INVAL;
+
+  pte_t *pte;
+  struct Page *page = page_lookup(src->env_pgdir, srcva, &pte);
+  if(!page || ((perm & PTE_W) && !(*pte & PTE_W)))
+    return -E_INVAL;
+
+  return page_insert(dst->env_pgdir, page, dstva, perm);
+
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
