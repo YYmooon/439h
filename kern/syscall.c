@@ -111,7 +111,36 @@ sys_env_set_status(envid_t envid, int status)
     // envid's status.
 
     // LAB 4: Your code here.
-    panic("sys_env_set_status not implemented");
+    struct Env* e;
+    int res = envid2env(envid, &e, 1);
+    if(res < 0) return res;             // -E_BAD_ENV
+
+    if(status == ENV_FREE)
+        // a user should not be able to mark an environment as free,
+        // that should be done by syscalling sys_env_destroy.
+        return -E_INVAL;
+
+    if(e->env_type == ENV_TYPE_IDLE) {
+        if((status == ENV_DYING) ||
+           (status == ENV_RUNNABLE))
+            // This code prevents users from setting idle environments'
+            // status flags to the following values:
+            //  - ENV_DYING     a user shouldn't be able to kill a kernel env
+            //  - ENV_RUINNABLE idle envs can only be entered by the kernel
+            return -E_INVAL;
+    } else {
+        if((status == ENV_DYING)        ||
+           (status == ENV_RUNNABLE)     ||
+           (status == ENV_RUNNING)      ||
+           (status == ENV_NOT_RUNNABLE)) {
+            // if the status is legal...
+            e->env_status = status;
+        } else {
+            // don't let envs enter states which aren't valid states
+            // according to the env states enum
+            return -E_INVAL;
+        }
+    }
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
