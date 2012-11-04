@@ -192,15 +192,15 @@ sys_page_alloc(envid_t envid, void *va, int perm)
         // the permission bits are wrong..
         return -E_INVAL;
 
-    if((va % PGSIZE) != 0)
+    if(((unsigned) va % PGSIZE) != 0)
         // the VA is not page-aligned
         return -E_INVAL;
 
-    if(va >= UTOP)
+    if((unsigned) va >= UTOP)
         // the VA is above UTOP
         return -E_INVAL;
 
-    if(p = page_alloc()) {
+    if((p = page_alloc(ALLOC_ZERO))) {
         // nonzero return value, all is well so far
         int i = page_insert(curenv->env_pgdir, p, va, PTE_P | PTE_U | perm);
         if(i == 0) {
