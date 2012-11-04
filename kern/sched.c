@@ -30,7 +30,7 @@ sched_yield(void)
 	// below to switch to this CPU's idle environment.
 
 	// LAB 4: Your code here.
-    int cur_cpunum = curenv->env_cpunum;
+    int cur_cpunum = curenv ? curenv->env_cpunum : 0;
 
 	i = (cur_cpunum + 1) % NCPU; 
 
