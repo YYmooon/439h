@@ -1,0 +1,29 @@
+Brian Schmitz (bschmitz), Reid McKenzie (reid) - RDM2755, <ID> - Lab 4444 Answers
+
+#Question 1 - boot.S vs mpentry.S
+`MPBOOTPHYS()` serves to __compute__ the addresses of the values on which 
+`mpentry.S` depends instead of relying upon the linker to fill in the blanks
+at compile time. This is called for because `mpentry.S` is not loaded the same
+way that `boot.S` is. `boot.S` is loaded by the BIOS into memory above the BIOS
+defined flags (page 0) or about physical address 0x1000. `MPENTRY_PADDR`, the
+base address above which the application processors' code is loaded and their
+PCs initialized is physical address 0x7000 however the compiler is not aware of
+this difference. Were the compiler-generated linking to be used directly, then 
+terrible things would happen as the application processors would be looking for 
+their values in entirely the wrong place. Hence the `MPBOOTPHYS()` macro which
+performs the required address conversion.
+
+#Question 2
+While the Big Kernel Lock provides protection against multople processors 
+executing kernel code at once, it provides no protection against multiple
+processors interrupting and attempting to enter kernel space simultaneously.
+On a signle stack system if one processor is already in the kernel space and 
+has the Big Kernel Lock should another processor enter the interrupt handler
+code it will begin pushing values onto the stack blindly (under our handler
+design) starting from the same stack base which the other handler did. This
+means that it will clobber the process state information which the thread
+holding the Big Kernel Lock will use if and when it attempts to resume
+execution, meaning that the thread supposedly safe in the critical section of
+the kernel could easilly be corrupted deliberately or accidentally by another
+interrupting thread.
+
