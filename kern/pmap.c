@@ -345,35 +345,22 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
-	size_t i;
-	physaddr_t pa;
 
-	pages[0].pp_ref = 1;
+#define RANGE(i, min, max) (i >= min) && (i <= max) ? 1 : 0
+#define UNUSABLE(i)        ((i == 0) |\
+                            (i == MPENTRY_PADDR) |\
+                            RANGE(i, IOPHYSMEM, (unsigned) PADDR(boot_alloc(0)-1)))
 
-	for(i = 1; i < npages_basemem; i++){
-		if(i == MPENTRY_PADDR/PGSIZE){
-			pages[i].pp_ref = 1;
-		}
-		else {
-			pages[i].pp_ref = 0;
-                	pages[i].pp_link = page_free_list;
-                	page_free_list = &pages[i];
-		}
-	}
-
-	for(i = (IOPHYSMEM/PGSIZE); i < (EXTPHYSMEM/PGSIZE); i++) {
-		pages[i].pp_ref = 1;
-	}
-
-	for(i = (EXTPHYSMEM/PGSIZE); i < (PADDR(boot_alloc(0))/PGSIZE); i++) {
-		pages[i].pp_ref = 1;
-	}
-
-	for(i = PADDR(boot_alloc(0))/PGSIZE; i < npages; i++){
-		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
-	}
+    size_t i;
+    for(i = 0; i < npages; i++) {
+        if(UNUSABLE(i * PGSIZE)) {
+            pages[i].pp_ref = 9001; // IT'S OVER NINE THOUSAND
+        } else {
+            pages[i].pp_ref = 0;
+            pages[i].pp_link = page_free_list;
+            page_free_list = &pages[i];
+        }
+    }
 }
 
 
