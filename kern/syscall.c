@@ -185,7 +185,35 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     //   allocated!
 
     // LAB 4: Your code here.
-    panic("sys_page_alloc not implemented");
+    struct Page* p;
+
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_P);
+    if(perm_check) 
+        // the permission bits are wrong..
+        return -E_INVAL;
+
+    if((va % PGSIZE) != 0)
+        // the VA is not page-aligned
+        return -E_INVAL;
+
+    if(va >= UTOP)
+        // the VA is above UTOP
+        return -E_INVAL;
+
+    if(p = page_alloc()) {
+        // nonzero return value, all is well so far
+        int i = page_insert(curenv->env_pgdir, p, va, PTE_P | PTE_U | perm);
+        if(i == 0) {
+            // all is well
+            return 0;
+        } else {
+            page_free(p);
+            return i;
+        }
+    } else {
+        // no page was allocated, die
+        return -E_NO_MEM;
+    }
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
