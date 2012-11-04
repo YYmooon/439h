@@ -3,6 +3,7 @@
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
+#include <kern/spinlock.h>
 
 
 // Choose a user environment to run and run it.
@@ -32,6 +33,7 @@ sched_yield(void)
     int cur_cpunum = curenv->env_cpunum;
 
 	i = (cur_cpunum + 1) % NCPU; 
+
     while(i != cur_cpunum) {
 		if (envs[i].env_type != ENV_TYPE_IDLE &&
 		    (envs[i].env_status == ENV_RUNNABLE ||
@@ -45,15 +47,11 @@ sched_yield(void)
             i = (i + 1) % NCPU;
         }
 	}
-	if (i == NENV) {
-		cprintf("No more runnable environments!\n");
-		while (1)
-			monitor(NULL);
-	}
 
-	// Run this CPU's idle environment when nothing else is runnable.
+    // Run this CPU's idle environment when nothing else is runnable.
 	idle = &envs[cpunum()];
 	if (!(idle->env_status == ENV_RUNNABLE || idle->env_status == ENV_RUNNING))
 		panic("CPU %d: No idle environment!", cpunum());
-	env_run(idle);
+
+    env_run(idle);
 }
