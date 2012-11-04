@@ -85,7 +85,13 @@ sys_exofork(void)
     // will appear to return 0.
 
     // LAB 4: Your code here.
-    panic("sys_exofork not implemented");
+    struct Env* e;
+    unsigned res = env_alloc(&e, curenv->env_id);
+    if(res < 0) return res; // -E_NO_FREE_ENV, -E_NO_MEM
+    e->env_status = ENV_NOT_RUNNABLE;
+    e->env_tf.tf_regs = curenv->env_tf.tf_regs; // copy register state
+    e->env_tf.tf_regs.reg_eax = 0;              // set child return code
+    return e->env_id;                           // return the child's env. id
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
