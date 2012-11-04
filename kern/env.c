@@ -121,14 +121,26 @@ env_init(void)
     // LAB 3: Your code here.
     int i;
     for(i = NENV - 1; i >= 0; i--) {
-                envs[i].env_id = 0;
+        envs[i].env_id = 0;
         envs[i].env_status = ENV_FREE;
-                envs[i].env_link = env_free_list;
-                env_free_list = &envs[i];
-        }
-
+        envs[i].env_link = env_free_list;
+        env_free_list = &envs[i];
+    }
     // Per-CPU part of the initialization
     env_init_percpu();
+}
+
+void
+env_print_flst() {
+    int i = 0;
+    struct Env* e = env_free_list;
+    while(e->env_link) {
+        i++;
+        cprintf("[env_print_flst] environment %u free\n",
+                ((unsigned) e - (unsigned) &envs)/sizeof(struct Env));
+        e = e->env_link;
+    }
+    cprintf("[env_print_flst] total of %u free environments\n", i);
 }
 
 // Load GDT and segment descriptors.
@@ -212,12 +224,16 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
     int r;
     struct Env *e;
 
-    if (!(e = env_free_list))
+    if (!(e = env_free_list)) {
+        cprintf("[env_alloc] no free envs!\n");
         return -E_NO_FREE_ENV;
+    }
 
     // Allocate and set up the page directory for this environment.
-    if ((r = env_setup_vm(e)) < 0)
+    if ((r = env_setup_vm(e)) < 0) {
+        cprintf("[env_alloc] could not initialize environment!\n");
         return r;
+    }
 
     // Generate an env_id for this environment.
     generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
