@@ -32,18 +32,24 @@ sched_yield(void)
     // below to switch to this CPU's idle environment.
 
     // LAB 4: Your code here.
-    int c = (curenv ? curenv->env_id : 0) % NENV;
+    int c = (curenv ? ENVX(curenv->env_id) : 0) % NENV;
     i = (c + 1) % NENV;
 
     while(i != c) {
         if (envs[i].env_type != ENV_TYPE_IDLE &&
             (envs[i].env_status == ENV_RUNNABLE)) {
-            cprintf("env %d launching env %d\n", c, envs[i].env_id);
+            cprintf("env %d launching env %d type %s\n",
+                    c, i,
+                    ((envs[i].env_type == ENV_TYPE_USER) ? "user" : "idle" ));
             env_run(&envs[i]);
         } else { 
             i = (i + 1) % NENV;
         }
     }
+
+   if((curenv->env_type != ENV_TYPE_IDLE) &&
+      (curenv->env_status == ENV_RUNNING))
+       env_run(curenv);
 
     if (cpunum() == 0) {
         cprintf("No more runnable environments!\n");
