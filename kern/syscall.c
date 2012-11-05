@@ -16,7 +16,6 @@
 do {                                            \
     if(x == 0) {                                \
         x = curenv->env_id;                     \
-        cprintf("USING DEFAULT VALUE...\n");    \
     }                                           \
 } while(0);
 
