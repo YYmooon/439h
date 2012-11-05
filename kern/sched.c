@@ -47,7 +47,8 @@ sched_yield(void)
         }
     }
 
-   if((curenv->env_type != ENV_TYPE_IDLE) &&
+   if(curenv &&
+      (curenv->env_type != ENV_TYPE_IDLE) &&
       (curenv->env_status == ENV_RUNNING))
        env_run(curenv);
 
