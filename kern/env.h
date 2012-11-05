@@ -16,8 +16,8 @@ int     env_alloc(struct Env **e, envid_t parent_id);
 void    env_free(struct Env *e);
 void    env_create(uint8_t *binary, size_t size, enum EnvType type);
 void    env_destroy(struct Env *e);    // Does not return if e == curenv
-void    env_print_flst();
-int    envid2env(envid_t envid, struct Env **env_store, bool checkperm);
+int     env_free_list_len();
+int     envid2env(envid_t envid, struct Env **env_store, bool checkperm);
 // The following two functions do not return
 void    env_run(struct Env *e) __attribute__((noreturn));
 void    env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
@@ -34,5 +34,10 @@ void    env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
                (int)ENV_PASTE3(_binary_obj_, x, _size),    \
                type);                    \
     } while (0)
+
+
+#define env_print_flst() \
+    cprintf("[env_print_flst] total of %u free environments\n", \
+            env_free_list_len());
 
 #endif // !JOS_KERN_ENV_H

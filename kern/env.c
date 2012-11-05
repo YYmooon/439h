@@ -130,17 +130,15 @@ env_init(void)
     env_init_percpu();
 }
 
-void
-env_print_flst() {
+int
+env_free_list_len() {
     int i = 0;
     struct Env* e = env_free_list;
     while(e->env_link) {
         i++;
-        cprintf("[env_print_flst] environment %u free\n",
-                ((unsigned) e - (unsigned) &envs)/sizeof(struct Env));
         e = e->env_link;
     }
-    cprintf("[env_print_flst] total of %u free environments\n", i);
+    return i;
 }
 
 // Load GDT and segment descriptors.
