@@ -183,7 +183,22 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
     ZERO_CALL_SUPPORT(envid);
     // LAB 4: Your code here.
-    panic("sys_env_set_pgfault_upcall not implemented");
+    struct Env* e;
+    int res = envid2env(envid, &e, 1);
+    if(res < 0) return res; // permission faults...
+
+    // because I'm paranoid, check that func is mapped and that we have permission
+    pte_t * entry;
+    res = page_lookup(e->env_pgdir, va, &entry);
+    if(res == 0) 
+        return -E_INVAL; // not a legal target function, no pagedir mapped there
+
+    if(!(*entry & PTE_U) || !(*entry & PTE_P)) 
+        return -E_INVAL; // user does not have access to that page
+
+    // okay fine do it
+    e->env_pgfault_upcall = func;
+    return 0;
 }
 
 // Allocate a page of memory and map it at 'va' with permission
