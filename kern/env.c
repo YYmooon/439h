@@ -243,7 +243,6 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
     // Set the basic status variables.
     e->env_parent_id = parent_id;
-    e->env_type = ENV_TYPE_USER;
     e->env_status = ENV_RUNNABLE;
     e->env_runs = 0;
 
@@ -410,6 +409,7 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
     // LAB 3: Your code here.
     struct Env *env = NULL;
     env_alloc(&env, 0);
+    env->env_type = type;
     load_icode(env, binary, size);
 }
 
@@ -541,14 +541,12 @@ env_run(struct Env *e)
 
     // LAB 3: Your code here.
     if(curenv != e){
-        if(e->env_status == ENV_RUNNING){
-            e->env_status = ENV_RUNNABLE;
-        }
-
+        if(curenv)
+            curenv->env_status = ENV_RUNNABLE;
         curenv = e;
         curenv->env_status = ENV_RUNNING;
         curenv->env_runs++;
-            lcr3(PADDR(curenv->env_pgdir));
+        lcr3(PADDR(curenv->env_pgdir));
     }
     unlock_kernel();
     env_pop_tf(&curenv->env_tf);
