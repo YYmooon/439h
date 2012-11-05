@@ -12,6 +12,14 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
+#define ZERO_CALL_SUPPORT(x)                    \
+do {                                            \
+    if(x == 0) {                                \
+        x = curenv->env_id;                     \
+        cprintf("USING DEFAULT VALUE...\n");    \
+    }                                           \
+} while(0);
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -50,6 +58,7 @@ sys_getenvid(void)
 static int
 sys_env_destroy(envid_t envid)
 {
+    ZERO_CALL_SUPPORT(envid);
     int r;
     struct Env *e;
 
@@ -112,6 +121,7 @@ sys_exofork(void)
 static int
 sys_env_set_status(envid_t envid, int status)
 {
+    ZERO_CALL_SUPPORT(envid);
     // Hint: Use the 'envid2env' function from kern/env.c to translate an
     // envid to a struct Env.
     // You should set envid2env's third argument to 1, which will
@@ -140,6 +150,7 @@ sys_env_set_status(envid_t envid, int status)
 static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
+    ZERO_CALL_SUPPORT(envid);
     // LAB 4: Your code here.
     panic("sys_env_set_pgfault_upcall not implemented");
 }
@@ -171,7 +182,12 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     //   allocated!
 
     // LAB 4: Your code here.
+    ZERO_CALL_SUPPORT(envid);
+    struct Env* target;
     struct Page* p;
+
+    int res = envid2env(envid, &target, 1); 
+    if(res < 0) return res; // permissions error case
 
     int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check) {
@@ -196,9 +212,10 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
     if((p = page_alloc(ALLOC_ZERO))) {
         // nonzero return value, all is well so far
-        int i = page_insert(curenv->env_pgdir, p, va, PTE_P | PTE_U | perm);
+        int i = page_insert(target->env_pgdir, p, va, PTE_P | PTE_U | perm);
         if(i == 0) {
             // all is well
+            cprintf("[sys_page_alloc] insert returned %d, all well\n", i);
             return 0;
         } else {
             page_free(p);
@@ -232,6 +249,8 @@ static int
 sys_page_map(envid_t srcenvid, void *srcva,
          envid_t dstenvid, void *dstva, int perm)
 {
+    ZERO_CALL_SUPPORT(srcenvid);
+    ZERO_CALL_SUPPORT(dstenvid);
     // Hint: This function is a wrapper around page_lookup() and
     //   page_insert() from kern/pmap.c.
     //   Again, most of the new code you write should be to check the
@@ -263,7 +282,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
   if(!page || ((perm & PTE_W) && !(*pte & PTE_W)))
     return -E_INVAL;
 
-  return page_insert(dst->env_pgdir, page, dstva, perm);
+  return page_insert(dst->env_pgdir, page, dstva, PTE_P | PTE_U | perm);
 
 }
 
@@ -277,8 +296,8 @@ sys_page_map(envid_t srcenvid, void *srcva,
 static int
 sys_page_unmap(envid_t envid, void *va)
 {
+    ZERO_CALL_SUPPORT(envid);
     // Hint: This function is a wrapper around page_remove().
-
     // LAB 4: Your code here.
     struct Env *env;
     int res;
@@ -337,6 +356,7 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
+    ZERO_CALL_SUPPORT(envid);
     // LAB 4: Your code here.
     panic("sys_ipc_try_send not implemented");
 }
@@ -364,7 +384,7 @@ sys_ipc_recv(void *dstva)
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
-    //cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
+    cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
     // Call the function corresponding to the 'syscallno' parameter.
     // Return any appropriate return value.
     // LAB 3: Your code here.
