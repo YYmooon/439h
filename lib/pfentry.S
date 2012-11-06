@@ -93,7 +93,7 @@ _pgfault_upcall:
 	// modifies eflags.
 	// LAB 4: Your code here.
 
-    pop %eflags
+    popf
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
