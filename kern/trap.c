@@ -318,7 +318,7 @@ trap(struct Trapframe *tf)
 }
 
 
-#define SHITTY_PUSH(val) do{black_dynamite* = val; black_dynamite-=4;}while(0);
+#define SHITTY_PUSH(val) do{*black_dynamite = val; black_dynamite=(unsigned*)(black_dynamite-4);}while(0);
 
 void
 page_fault_handler(struct Trapframe *tf)
@@ -373,16 +373,12 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-    if(curenv->env_pgfault_upcall)
-        if(user_mem_check(curenv->env_pgdir, UXSTACKTOP - 50, 5, PTE_P|PTE_U|PTE_W)){
-            struct Page* p = page_alloc(ALLOC_ZERO);
-            page_insert(curenv->env_pgdir, p,  UXSTACKTOP - PGSIZE + 1,  PTE_P | PTE_U | PTE_W);
-        }
+    if(curenv->env_pgfault_upcall) {
+        unsigned* black_dynamite = (unsigned*) UXSTACKTOP - 4;
 
-        void* black_dynamite = UXSTACKTOP - 4;
         if(((UXSTACKTOP - PGSIZE) <= tf->tf_esp) && 
            (tf->tf_esp <= (UXSTACKTOP - 1))) {
-            black_dynamite = tf->tf_esp - 4;
+            black_dynamite = (unsigned*) tf->tf_esp - 4;
         }
 
         SHITTY_PUSH(tf->tf_esp);
@@ -399,8 +395,8 @@ page_fault_handler(struct Trapframe *tf)
         SHITTY_PUSH(tf->tf_err);
         SHITTY_PUSH(fault_va);
 
-        tf->tf_eip = curenv->env_pgfault_upcall;
-        tf->tf_esp = black_dynamite + 4;
+        tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
+        tf->tf_esp = (unsigned) black_dynamite + 4;
 
         env_run(curenv);
 
