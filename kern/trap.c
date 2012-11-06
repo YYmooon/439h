@@ -252,7 +252,7 @@ trap_dispatch(struct Trapframe *tf)
     }
 
     // Unexpected trap: The user process or the kernel has a bug.
-        print_trapframe(tf);
+    print_trapframe(tf);
     if (tf->tf_cs == GD_KT) {
         panic("unhandled trap in kernel");
     } else {
@@ -318,7 +318,7 @@ trap(struct Trapframe *tf)
 }
 
 
-#define SHITTY_PUSH(val) do{*black_dynamite = val; black_dynamite=(unsigned*)(black_dynamite-4);}while(0);
+#define SHITTY_PUSH(val) do{*black_dynamite = (val); black_dynamite--;}while(0);
 
 void
 page_fault_handler(struct Trapframe *tf)
@@ -374,11 +374,16 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
     if(curenv->env_pgfault_upcall) {
-        unsigned* black_dynamite = (unsigned*) UXSTACKTOP - 4;
+        cprintf("User fault with upcall... UXSTACKTOP %08x UXSTACKBOT %08x\n",
+                UXSTACKTOP, UXSTACKTOP-PGSIZE);
+        print_trapframe(tf);
+        cprintf("Fault VA was %08x\n", fault_va);
+
+        unsigned* black_dynamite = (unsigned*) UXSTACKTOP - 1;
 
         if(((UXSTACKTOP - PGSIZE) <= tf->tf_esp) && 
            (tf->tf_esp <= (UXSTACKTOP - 1))) {
-            black_dynamite = (unsigned*) tf->tf_esp - 4;
+            black_dynamite = (unsigned*) tf->tf_esp - 1;
         }
 
         SHITTY_PUSH(tf->tf_esp);
@@ -394,9 +399,17 @@ page_fault_handler(struct Trapframe *tf)
         SHITTY_PUSH(tf->tf_regs.reg_edi);
         SHITTY_PUSH(tf->tf_err);
         SHITTY_PUSH(fault_va);
+        SHITTY_PUSH((unsigned) black_dynamite + 1);
 
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
-        tf->tf_esp = (unsigned) black_dynamite + 4;
+        tf->tf_esp = (unsigned) black_dynamite + 1;
+
+        int i;
+        unsigned* data = black_dynamite + 1;
+        for(i = 0; i < 11; i++) {
+            cprintf("%08x    %08x\n", data, *data);
+            data = (unsigned*) data + 1;
+        }
 
         env_run(curenv);
 
