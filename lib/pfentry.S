@@ -8,7 +8,7 @@
 // in pgfault.c).
 //
 // When a page fault actually occurs, the kernel switches our ESP to
-// point to the user exception stack if we're not already on the user
+/ point to the user exception stack if we're not already on the user
 // exception stack, and then it pushes a UTrapframe onto our user
 // exception stack:
 //
@@ -65,18 +65,44 @@ _pgfault_upcall:
 	// ways as registers become unavailable as scratch space.
 	//
 	// LAB 4: Your code here.
+    
+    // throw away the top two values
+    popl %eax
+    popl %eax
+
+    // put the old eip where we can ret to it
+    movl -12(%esp), %eax    // copy the old stack address into a register
+    movl -32(%esp), %ebx    // copy the old eip into a register
+    movl %esp, %edi         // save out stack pointer
+    movl %eax, %esp         // load their stack pointer
+    pushl %ebx              // push the old eip
+    movl %esp, %eax         // save their "new" stack pointer
+    movl %edi, %esp         // return to our stack
+    
+    // put their new stack pointer at bottom of our stack
+    movl %eax, -40(%esp)    // push their new stack 
 
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+
+    popal
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
 
+    pop %eflags
+
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
 
+    pop %esp
+
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+
+    ret
+
+
