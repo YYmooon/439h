@@ -372,10 +372,9 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
     if(curenv->env_pgfault_upcall) {
-        cprintf("User fault with upcall... UXSTACKTOP %08x UXSTACKBOT %08x\n",
-                UXSTACKTOP, UXSTACKTOP-PGSIZE);
+        cprintf("[page_fault_handler] User fault with upcall...\n"); 
         print_trapframe(tf);
-        cprintf("Fault VA was %08x\n", fault_va);
+        cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
 
         struct UTrapframe *utf;
         char*  raw_addr;
@@ -398,13 +397,17 @@ page_fault_handler(struct Trapframe *tf)
         utf->utf_esp      = tf->tf_esp;
 
        *((unsigned*)((unsigned) raw_addr - 4)) = (unsigned) utf;
+       *((unsigned*)((unsigned) raw_addr - 8)) = (unsigned) tf->tf_eip;
 
-        tf->tf_esp = (unsigned) raw_addr - 8;
+       tf->tf_esp = (unsigned) raw_addr - 8;
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
+
+        cprintf("[page_fault_handler] entering user recovery environment...\n"); 
 
         env_run(curenv);
 
     } else {
+        cprintf("[page_fault_handler] User fault with __NO__ upcall...\n"); 
         // Destroy the environment that caused the fault.
         cprintf("[%08x] user fault va %08x ip %08x\n",
             curenv->env_id, fault_va, tf->tf_eip);
