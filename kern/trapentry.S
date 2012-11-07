@@ -47,38 +47,55 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
-TRAPHANDLER_NOEC(divide, T_DIVIDE)
-TRAPHANDLER_NOEC(debug, T_DEBUG)
-TRAPHANDLER_NOEC(nmi, T_NMI)
-TRAPHANDLER_NOEC(brkpt, T_BRKPT)
-TRAPHANDLER_NOEC(oflow, T_OFLOW)
-TRAPHANDLER_NOEC(bound, T_BOUND)
-TRAPHANDLER_NOEC(illop, T_ILLOP)
-TRAPHANDLER_NOEC(device, T_DEVICE)
-TRAPHANDLER(dblflt, T_DBLFLT)
-TRAPHANDLER(tss, T_TSS)
-TRAPHANDLER(segnp, T_SEGNP)
-TRAPHANDLER(stack, T_STACK)
-TRAPHANDLER(gpflt, T_GPFLT)
-TRAPHANDLER(pgflt, T_PGFLT)
-TRAPHANDLER_NOEC(fperr, T_FPERR)
-TRAPHANDLER(align, T_ALIGN)
-TRAPHANDLER_NOEC(mchk, T_MCHK)
-TRAPHANDLER_NOEC(simderr, T_SIMDERR)
-TRAPHANDLER_NOEC(system_call, T_SYSCALL)
+TRAPHANDLER_NOEC(divide,        T_DIVIDE)
+TRAPHANDLER_NOEC(debug,         T_DEBUG)
+TRAPHANDLER_NOEC(nmi,           T_NMI)
+TRAPHANDLER_NOEC(brkpt,         T_BRKPT)
+TRAPHANDLER_NOEC(oflow,         T_OFLOW)
+TRAPHANDLER_NOEC(bound,         T_BOUND)
+TRAPHANDLER_NOEC(illop,         T_ILLOP)
+TRAPHANDLER_NOEC(device,        T_DEVICE)
+TRAPHANDLER(     dblflt,        T_DBLFLT)
+TRAPHANDLER(     tss,           T_TSS)
+TRAPHANDLER(     segnp,         T_SEGNP)
+TRAPHANDLER(     stack,         T_STACK)
+TRAPHANDLER(     gpflt,         T_GPFLT)
+TRAPHANDLER(     pgflt,         T_PGFLT)
+TRAPHANDLER_NOEC(fperr,         T_FPERR)
+TRAPHANDLER(     align,         T_ALIGN)
+TRAPHANDLER_NOEC(mchk,          T_MCHK)
+TRAPHANDLER_NOEC(simderr,       T_SIMDERR)
+TRAPHANDLER_NOEC(system_call,   T_SYSCALL)
+
+TRAPHANDLER_NOEC(irq_timer,     IRQ_TIMER    + IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq_kbd,       IRQ_KBD      + IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq_serial,    IRQ_SERIAL   + IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq_spurious,  IRQ_SPURIOUS + IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq_ide,       IRQ_IDE      + IRQ_OFFSET)
+TRAPHANDLER_NOEC(irq_error,     IRQ_ERROR    + IRQ_OFFSET)
 
 /*
  * Lab 3: Your code here for _alltraps
  */
 _alltraps:
-pushw $0x0
-pushw %ds
-pushw $0x0
-pushw %es
-pushal
-movw $GD_KD, %ax
-movw %ax, %ds
-movw %ax, %es
-pushl %esp
-call trap
+    # prevent interupts..
+    movl  $(FL_IF), %eax
+    notl  %eax
+    pushfl
+    popl  %ebx
+    andl  %eax, %ebx
+    pushl %ebx
+    popfl
+    # set things up..
+    pushw $0x0
+    pushw %ds
+    pushw $0x0
+    pushw %es
+    pushal
+    movw $GD_KD, %ax
+    movw %ax, %ds
+    movw %ax, %es
+    pushl %esp
+    # and jump into the kernel
+    call trap
 
