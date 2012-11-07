@@ -187,6 +187,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
     int res = envid2env(envid, &e, 1);
     if(res < 0) return res; // permission faults...
 
+    user_mem_assert(curenv, func, PGSIZE, PTE_U | PTE_P);
     // okay fine do it
     e->env_pgfault_upcall = func;
     return 0;
