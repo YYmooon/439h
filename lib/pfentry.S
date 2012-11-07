@@ -67,12 +67,11 @@ _pgfault_upcall:
 	// LAB 4: Your code here.
     
     // throw away the top two values
-    popl %eax
-    popl %eax
+    addl $8, %esp           // throw away the top two struct elements
 
     // put the old eip where we can ret to it
-    movl -12(%esp), %eax    // copy the old stack address into a register
-    movl -32(%esp), %ebx    // copy the old eip into a register
+    movl 40(%esp), %eax    // copy the old stack address into a register
+    movl 32(%esp), %ebx    // copy the old eip into a register
     movl %esp, %edi         // save out stack pointer
     movl %eax, %esp         // load their stack pointer
     pushl %ebx              // push the old eip
@@ -80,7 +79,7 @@ _pgfault_upcall:
     movl %edi, %esp         // return to our stack
     
     // put their new stack pointer at bottom of our stack
-    movl %eax, -40(%esp)    // push their new stack 
+    movl %eax, 40(%esp)    // push their new stack 
 
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
@@ -93,7 +92,8 @@ _pgfault_upcall:
 	// modifies eflags.
 	// LAB 4: Your code here.
 
-    popf
+    addl $4, %esp
+    popfl;
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.

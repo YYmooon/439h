@@ -318,6 +318,8 @@ trap(struct Trapframe *tf)
 }
 
 
+extern void _pgfault_upcall(void);
+
 void
 page_fault_handler(struct Trapframe *tf)
 {
@@ -396,10 +398,7 @@ page_fault_handler(struct Trapframe *tf)
         utf->utf_eflags   = tf->tf_eflags;
         utf->utf_esp      = tf->tf_esp;
 
-       *((unsigned*)((unsigned) raw_addr - 4)) = (unsigned) utf;
-       *((unsigned*)((unsigned) raw_addr - 8)) = (unsigned) tf->tf_eip;
-
-       tf->tf_esp = (unsigned) raw_addr - 8;
+        tf->tf_esp = (unsigned) raw_addr;
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
 
         cprintf("[page_fault_handler] entering user recovery environment...\n"); 
