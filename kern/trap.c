@@ -381,9 +381,9 @@ page_fault_handler(struct Trapframe *tf)
         struct UTrapframe *utf;
         char*  raw_addr;
 
-        if((UXSTACKTOP >= tf->tf_esp) &&
-           (UXSTACKTOP-PGSIZE <  tf->tf_esp)) {
-            raw_addr = (char*) tf->tf_esp;
+        if((UXSTACKTOP >= tf->tf_esp) && (UXSTACKTOP-PGSIZE <  tf->tf_esp)) {
+            cprintf("[page_fault_handler] recursive fault, adding an exception stack frame\n");
+            raw_addr = (char*) tf->tf_esp - 4;
         } else {
             raw_addr = (char*) UXSTACKTOP - 1;
         }
