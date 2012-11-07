@@ -374,6 +374,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
     if(curenv->env_pgfault_upcall) {
+
         cprintf("[page_fault_handler] User fault with upcall...\n"); 
         print_trapframe(tf);
         cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
@@ -388,7 +389,11 @@ page_fault_handler(struct Trapframe *tf)
             raw_addr = (char*) UXSTACKTOP - 1;
         }
 
+        user_mem_assert(curenv, (void *) raw_addr - sizeof(struct UTrapframe) - 8, 
+                        sizeof(struct UTrapframe) + 8, PTE_U | PTE_W | PTE_P);
         raw_addr -= sizeof(struct UTrapframe);
+
+
         utf = (struct UTrapframe*) raw_addr;
 
         utf->utf_fault_va = fault_va;
