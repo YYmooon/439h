@@ -49,10 +49,9 @@ i386_init(void)
     // Lab 4 multitasking initialization functions
     pic_init();
 
-    // Acquire the big kernel lock before waking up APs
-    // Your code here:
-//    spin_initlock(&kernel_lock);
-    lock_kernel(); 
+	// Acquire the big kernel lock before waking up APs
+	// Your code here:
+	lock_kernel();
 
     // Starting non-boot CPUs
     boot_aps();
@@ -117,24 +116,24 @@ boot_aps(void)
 void
 mp_main(void)
 {
-    // We are in high EIP now, safe to switch to kern_pgdir 
-    lcr3(PADDR(kern_pgdir));
-    cprintf("SMP: CPU %d starting\n", cpunum());
+	// We are in high EIP now, safe to switch to kern_pgdir 
+	lcr3(PADDR(kern_pgdir));
+	cprintf("SMP: CPU %d starting\n", cpunum());
 
-    lapic_init();
-    env_init_percpu();
-    trap_init_percpu();
+	lapic_init();
+	env_init_percpu();
+	trap_init_percpu();
+	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
-    xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+	// Now that we have finished some basic setup, call sched_yield()
+	// to start running processes on this CPU.  But make sure that
+	// only one CPU can enter the scheduler at a time!
+	//
+	// Your code here:
 
-    // Now that we have finished some basic setup, call sched_yield()
-    // to start running processes on this CPU.  But make sure that
-    // only one CPU can enter the scheduler at a time!
-    //
-    // Your code here:
-
-    lock_kernel();
-    sched_yield();
+	// Remove this after you finish Exercise 4
+	lock_kernel();
+	sched_yield();
 }
 
 /*

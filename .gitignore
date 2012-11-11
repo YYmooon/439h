@@ -16,3 +16,6 @@
 /sol?/
 /conf/lab.mk
 /prep?/
+*.swp
+*.bak
+

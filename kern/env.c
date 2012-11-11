@@ -15,11 +15,10 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
-struct Env *envs = NULL;		// All environments
-static struct Env *env_free_list;	// Free environment list
-					// (linked by Env->env_link)
+struct Env *envs = NULL;        // All environments
+static struct Env *env_free_list;    // Free environment list
 
-#define ENVGENSHIFT	12		// >= LOGNENV
+#define ENVGENSHIFT    12        // >= LOGNENV
 
 // Global descriptor table.
 //
@@ -226,22 +225,26 @@ env_setup_vm(struct Env *e)
 int
 env_alloc(struct Env **newenv_store, envid_t parent_id)
 {
-	int32_t generation;
-	int r;
-	struct Env *e;
+    int32_t generation;
+    int r;
+    struct Env *e;
 
-	if (!(e = env_free_list))
-		return -E_NO_FREE_ENV;
+    if (!(e = env_free_list)) {
+        cprintf("[env_alloc] no free envs!\n");
+        return -E_NO_FREE_ENV;
+    }
 
-	// Allocate and set up the page directory for this environment.
-	if ((r = env_setup_vm(e)) < 0)
-		return r;
+    // Allocate and set up the page directory for this environment.
+    if ((r = env_setup_vm(e)) < 0) {
+        cprintf("[env_alloc] could not initialize environment!\n");
+        return r;
+    }
 
-	// Generate an env_id for this environment.
-	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
-	if (generation <= 0)	// Don't create a negative env_id.
-		generation = 1 << ENVGENSHIFT;
-	e->env_id = generation | (e - envs);
+    // Generate an env_id for this environment.
+    generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
+    if (generation <= 0)    // Don't create a negative env_id.
+        generation = 1 << ENVGENSHIFT;
+    e->env_id = generation | (e - envs);
 
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
@@ -249,42 +252,43 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
 
-	// Clear out all the saved register state,
-	// to prevent the register values
-	// of a prior environment inhabiting this Env structure
-	// from "leaking" into our new environment.
-	memset(&e->env_tf, 0, sizeof(e->env_tf));
+    // Clear out all the saved register state,
+    // to prevent the register values
+    // of a prior environment inhabiting this Env structure
+    // from "leaking" into our new environment.
+    memset(&e->env_tf, 0, sizeof(e->env_tf));
 
-	// Set up appropriate initial values for the segment registers.
-	// GD_UD is the user data segment selector in the GDT, and
-	// GD_UT is the user text segment selector (see inc/memlayout.h).
-	// The low 2 bits of each segment register contains the
-	// Requestor Privilege Level (RPL); 3 means user mode.  When
-	// we switch privilege levels, the hardware does various
-	// checks involving the RPL and the Descriptor Privilege Level
-	// (DPL) stored in the descriptors themselves.
-	e->env_tf.tf_ds = GD_UD | 3;
-	e->env_tf.tf_es = GD_UD | 3;
-	e->env_tf.tf_ss = GD_UD | 3;
-	e->env_tf.tf_esp = USTACKTOP;
-	e->env_tf.tf_cs = GD_UT | 3;
-	// You will set e->env_tf.tf_eip later.
+    // Set up appropriate initial values for the segment registers.
+    // GD_UD is the user data segment selector in the GDT, and
+    // GD_UT is the user text segment selector (see inc/memlayout.h).
+    // The low 2 bits of each segment register contains the
+    // Requestor Privilege Level (RPL); 3 means user mode.  When
+    // we switch privilege levels, the hardware does various
+    // checks involving the RPL and the Descriptor Privilege Level
+    // (DPL) stored in the descriptors themselves.
+    e->env_tf.tf_ds = GD_UD | 3;
+    e->env_tf.tf_es = GD_UD | 3;
+    e->env_tf.tf_ss = GD_UD | 3;
+    e->env_tf.tf_esp = USTACKTOP;
+    e->env_tf.tf_cs = GD_UT | 3;
+    // You will set e->env_tf.tf_eip later.
 
-	// Enable interrupts while in user mode.
-	// LAB 4: Your code here.
+    // Enable interrupts while in user mode.
+    // LAB 4: Your code here.
+    e->env_tf.tf_eflags |= FL_IF;
 
-	// Clear the page fault handler until user installs one.
-	e->env_pgfault_upcall = 0;
+    // Clear the page fault handler until user installs one.
+    e->env_pgfault_upcall = 0;
 
-	// Also clear the IPC receiving flag.
-	e->env_ipc_recving = 0;
+    // Also clear the IPC receiving flag.
+    e->env_ipc_recving = 0;
 
-	// commit the allocation
-	env_free_list = e->env_link;
-	*newenv_store = e;
+    // commit the allocation
+    env_free_list = e->env_link;
+    *newenv_store = e;
 
-	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
-	return 0;
+    cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+    return 0;
 }
 
 //
@@ -477,20 +481,20 @@ env_free(struct Env *e)
 void
 env_destroy(struct Env *e)
 {
-    // If e is currently running on other CPUs, we change its state to
-    // ENV_DYING. A zombie environment will be freed the next time
-    // it traps to the kernel.
-    if (e->env_status == ENV_RUNNING && curenv != e) {
-        e->env_status = ENV_DYING;
-        return;
-    }
+	// If e is currently running on other CPUs, we change its state to
+	// ENV_DYING. A zombie environment will be freed the next time
+	// it traps to the kernel.
+	if (e->env_status == ENV_RUNNING && curenv != e) {
+		e->env_status = ENV_DYING;
+		return;
+	}
 
-    env_free(e);
+	env_free(e);
 
-    if (curenv == e) {
-        curenv = NULL;
-        sched_yield();
-    }
+	if (curenv == e) {
+		curenv = NULL;
+		sched_yield();
+	}
 }
 
 
@@ -503,17 +507,17 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
-    // Record the CPU we are running on for user-space debugging
-    curenv->env_cpunum = cpunum();
+	// Record the CPU we are running on for user-space debugging
+	curenv->env_cpunum = cpunum();
 
-    __asm __volatile("movl %0,%%esp\n"
-        "\tpopal\n"
-        "\tpopl %%es\n"
-        "\tpopl %%ds\n"
-        "\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
-        "\tiret"
-        : : "g" (tf) : "memory");
-    panic("iret failed");  /* mostly to placate the compiler */
+	__asm __volatile("movl %0,%%esp\n"
+		"\tpopal\n"
+		"\tpopl %%es\n"
+		"\tpopl %%ds\n"
+		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
+		"\tiret"
+		: : "g" (tf) : "memory");
+	panic("iret failed");  /* mostly to placate the compiler */
 }
 
 //
