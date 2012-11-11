@@ -1,4 +1,4 @@
-ma/* See COPYRIGHT for copyright information. */
+/* See COPYRIGHT for copyright information. */
 
 #ifndef JOS_INC_ENV_H
 #define JOS_INC_ENV_H

@@ -58,7 +58,7 @@ i386_init(void)
 
     // Should always have idle processes at first.
     int i;
-    for (i = 0; i < NCPU; i++)
+    for(i = 0; i < NCPU; i++)
         ENV_CREATE(user_idle, ENV_TYPE_IDLE);
 
 	// Start fs.

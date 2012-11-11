@@ -516,4 +516,3 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     }
 }
 
-        if(envid2env(envid
