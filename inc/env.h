@@ -1,4 +1,4 @@
-/* See COPYRIGHT for copyright information. */
+ma/* See COPYRIGHT for copyright information. */
 
 #ifndef JOS_INC_ENV_H
 #define JOS_INC_ENV_H
@@ -40,8 +40,9 @@ enum {
 
 // Special environment types
 enum EnvType {
-    ENV_TYPE_USER = 0,
-    ENV_TYPE_IDLE,
+	ENV_TYPE_USER = 0,
+	ENV_TYPE_IDLE,
+	ENV_TYPE_FS,		// File system server
 };
 
 struct Env {

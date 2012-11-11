@@ -17,6 +17,9 @@
 #include <inc/memlayout.h>
 #include <inc/syscall.h>
 #include <inc/trap.h>
+#include <inc/fs.h>
+#include <inc/fd.h>
+#include <inc/args.h>
 
 #define USED(x)     (void)(x)
 
@@ -77,6 +80,30 @@ envid_t ipc_find_env(enum EnvType type);
 envid_t fork(void);
 envid_t sfork(void);    // Challenge!
 
+// fd.c
+int	close(int fd);
+ssize_t	read(int fd, void *buf, size_t nbytes);
+ssize_t	write(int fd, const void *buf, size_t nbytes);
+int	seek(int fd, off_t offset);
+void	close_all(void);
+ssize_t	readn(int fd, void *buf, size_t nbytes);
+int	dup(int oldfd, int newfd);
+int	fstat(int fd, struct Stat *statbuf);
+int	stat(const char *path, struct Stat *statbuf);
+
+// file.c
+int	open(const char *path, int mode);
+int	ftruncate(int fd, off_t size);
+int	remove(const char *path);
+int	sync(void);
+
+// pageref.c
+int	pageref(void *addr);
+
+
+// spawn.c
+envid_t	spawn(const char *program, const char **argv);
+envid_t	spawnl(const char *program, const char *arg0, ...);
 
 
 /* File open modes */

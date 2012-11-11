@@ -15,11 +15,11 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
-struct Env *envs = NULL;        // All environments
-static struct Env *env_free_list;   // Free environment list
-                    // (linked by Env->env_link)
+struct Env *envs = NULL;		// All environments
+static struct Env *env_free_list;	// Free environment list
+					// (linked by Env->env_link)
 
-#define ENVGENSHIFT 12      // >= LOGNENV
+#define ENVGENSHIFT	12		// >= LOGNENV
 
 // Global descriptor table.
 //
@@ -226,69 +226,65 @@ env_setup_vm(struct Env *e)
 int
 env_alloc(struct Env **newenv_store, envid_t parent_id)
 {
-    int32_t generation;
-    int r;
-    struct Env *e;
+	int32_t generation;
+	int r;
+	struct Env *e;
 
-    if (!(e = env_free_list)) {
-        cprintf("[env_alloc] no free envs!\n");
-        return -E_NO_FREE_ENV;
-    }
+	if (!(e = env_free_list))
+		return -E_NO_FREE_ENV;
 
-    // Allocate and set up the page directory for this environment.
-    if ((r = env_setup_vm(e)) < 0) {
-        cprintf("[env_alloc] could not initialize environment!\n");
-        return r;
-    }
+	// Allocate and set up the page directory for this environment.
+	if ((r = env_setup_vm(e)) < 0)
+		return r;
 
-    // Generate an env_id for this environment.
-    generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
-    if (generation <= 0)    // Don't create a negative env_id.
-        generation = 1 << ENVGENSHIFT;
-    e->env_id = generation | (e - envs);
+	// Generate an env_id for this environment.
+	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
+	if (generation <= 0)	// Don't create a negative env_id.
+		generation = 1 << ENVGENSHIFT;
+	e->env_id = generation | (e - envs);
 
-    // Set the basic status variables.
-    e->env_parent_id = parent_id;
-    e->env_status = ENV_RUNNABLE;
-    e->env_runs = 0;
+	// Set the basic status variables.
+	e->env_parent_id = parent_id;
+	e->env_type = ENV_TYPE_USER;
+	e->env_status = ENV_RUNNABLE;
+	e->env_runs = 0;
 
-    // Clear out all the saved register state,
-    // to prevent the register values
-    // of a prior environment inhabiting this Env structure
-    // from "leaking" into our new environment.
-    memset(&e->env_tf, 0, sizeof(e->env_tf));
+	// Clear out all the saved register state,
+	// to prevent the register values
+	// of a prior environment inhabiting this Env structure
+	// from "leaking" into our new environment.
+	memset(&e->env_tf, 0, sizeof(e->env_tf));
 
-    // Set up appropriate initial values for the segment registers.
-    // GD_UD is the user data segment selector in the GDT, and
-    // GD_UT is the user text segment selector (see inc/memlayout.h).
-    // The low 2 bits of each segment register contains the
-    // Requestor Privilege Level (RPL); 3 means user mode.  When
-    // we switch privilege levels, the hardware does various
-    // checks involving the RPL and the Descriptor Privilege Level
-    // (DPL) stored in the descriptors themselves.
-    e->env_tf.tf_ds = GD_UD | 3;
-    e->env_tf.tf_es = GD_UD | 3;
-    e->env_tf.tf_ss = GD_UD | 3;
-    e->env_tf.tf_esp = USTACKTOP;
-    e->env_tf.tf_cs = GD_UT | 3;
-    // You will set e->env_tf.tf_eip later.
+	// Set up appropriate initial values for the segment registers.
+	// GD_UD is the user data segment selector in the GDT, and
+	// GD_UT is the user text segment selector (see inc/memlayout.h).
+	// The low 2 bits of each segment register contains the
+	// Requestor Privilege Level (RPL); 3 means user mode.  When
+	// we switch privilege levels, the hardware does various
+	// checks involving the RPL and the Descriptor Privilege Level
+	// (DPL) stored in the descriptors themselves.
+	e->env_tf.tf_ds = GD_UD | 3;
+	e->env_tf.tf_es = GD_UD | 3;
+	e->env_tf.tf_ss = GD_UD | 3;
+	e->env_tf.tf_esp = USTACKTOP;
+	e->env_tf.tf_cs = GD_UT | 3;
+	// You will set e->env_tf.tf_eip later.
 
-    // Enable interrupts while in user mode.
-    // LAB 4: Your code here.
-    e->env_tf.tf_eflags |= FL_IF;
+	// Enable interrupts while in user mode.
+	// LAB 4: Your code here.
 
-    // Clear the page fault handler until user installs one.
-    e->env_pgfault_upcall = 0;
+	// Clear the page fault handler until user installs one.
+	e->env_pgfault_upcall = 0;
 
-    // Also clear the IPC receiving flag.
-    e->env_ipc_recving = 0;
+	// Also clear the IPC receiving flag.
+	e->env_ipc_recving = 0;
 
-    // commit the allocation
-    env_free_list = e->env_link;
-    *newenv_store = e;
+	// commit the allocation
+	env_free_list = e->env_link;
+	*newenv_store = e;
 
-    cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
-    return 0;
+	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	return 0;
 }
 
 //
@@ -426,51 +422,51 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
 void
 env_free(struct Env *e)
 {
-    pte_t *pt;
-    uint32_t pdeno, pteno;
-    physaddr_t pa;
+	pte_t *pt;
+	uint32_t pdeno, pteno;
+	physaddr_t pa;
 
-    // If freeing the current environment, switch to kern_pgdir
-    // before freeing the page directory, just in case the page
-    // gets reused.
-    if (e == curenv)
-        lcr3(PADDR(kern_pgdir));
+	// If freeing the current environment, switch to kern_pgdir
+	// before freeing the page directory, just in case the page
+	// gets reused.
+	if (e == curenv)
+		lcr3(PADDR(kern_pgdir));
 
-    // Note the environment's demise.
-    cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	// Note the environment's demise.
+	// cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
-    // Flush all mapped pages in the user portion of the address space
-    static_assert(UTOP % PTSIZE == 0);
-    for (pdeno = 0; pdeno < PDX(UTOP); pdeno++) {
+	// Flush all mapped pages in the user portion of the address space
+	static_assert(UTOP % PTSIZE == 0);
+	for (pdeno = 0; pdeno < PDX(UTOP); pdeno++) {
 
-        // only look at mapped page tables
-        if (!(e->env_pgdir[pdeno] & PTE_P))
-            continue;
+		// only look at mapped page tables
+		if (!(e->env_pgdir[pdeno] & PTE_P))
+			continue;
 
-        // find the pa and va of the page table
-        pa = PTE_ADDR(e->env_pgdir[pdeno]);
-        pt = (pte_t*) KADDR(pa);
+		// find the pa and va of the page table
+		pa = PTE_ADDR(e->env_pgdir[pdeno]);
+		pt = (pte_t*) KADDR(pa);
 
-        // unmap all PTEs in this page table
-        for (pteno = 0; pteno <= PTX(~0); pteno++) {
-            if (pt[pteno] & PTE_P)
-                page_remove(e->env_pgdir, PGADDR(pdeno, pteno, 0));
-        }
+		// unmap all PTEs in this page table
+		for (pteno = 0; pteno <= PTX(~0); pteno++) {
+			if (pt[pteno] & PTE_P)
+				page_remove(e->env_pgdir, PGADDR(pdeno, pteno, 0));
+		}
 
-        // free the page table itself
-        e->env_pgdir[pdeno] = 0;
-        page_decref(pa2page(pa));
-    }
+		// free the page table itself
+		e->env_pgdir[pdeno] = 0;
+		page_decref(pa2page(pa));
+	}
 
-    // free the page directory
-    pa = PADDR(e->env_pgdir);
-    e->env_pgdir = 0;
-    page_decref(pa2page(pa));
+	// free the page directory
+	pa = PADDR(e->env_pgdir);
+	e->env_pgdir = 0;
+	page_decref(pa2page(pa));
 
-    // return the environment to the free list
-    e->env_status = ENV_FREE;
-    e->env_link = env_free_list;
-    env_free_list = e;
+	// return the environment to the free list
+	e->env_status = ENV_FREE;
+	e->env_link = env_free_list;
+	env_free_list = e;
 }
 
 //
