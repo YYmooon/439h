@@ -26,15 +26,14 @@ void    env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
 // ENV_CREATE because of the C pre-processor's argument prescan rule.
 #define ENV_PASTE3(x, y, z) x ## y ## z
 
-#define ENV_CREATE(x, type)                        \
-    do {                                \
-        extern uint8_t ENV_PASTE3(_binary_obj_, x, _start)[],    \
-            ENV_PASTE3(_binary_obj_, x, _size)[];        \
-        env_create(ENV_PASTE3(_binary_obj_, x, _start),        \
-               (int)ENV_PASTE3(_binary_obj_, x, _size),    \
-               type);                    \
-    } while (0)
-
+#define ENV_CREATE(x, type)                                     \
+    do {                                                        \
+        extern uint8_t ENV_PASTE3(_binary_obj_, x, _start)[],   \
+            ENV_PASTE3(_binary_obj_, x, _size)[];               \
+        env_create(ENV_PASTE3(_binary_obj_, x, _start),         \
+               (int)ENV_PASTE3(_binary_obj_, x, _size),         \
+               type);                                           \
+    } while (0;)
 
 #define env_print_flst() \
     cprintf("[env_print_flst] total of %u free environments\n", \
