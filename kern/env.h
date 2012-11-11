@@ -29,11 +29,11 @@ void    env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
 #define ENV_CREATE(x, type)                                     \
     do {                                                        \
         extern uint8_t ENV_PASTE3(_binary_obj_, x, _start)[],   \
-            ENV_PASTE3(_binary_obj_, x, _size)[];               \
+                       ENV_PASTE3(_binary_obj_, x, _size)[];    \
         env_create(ENV_PASTE3(_binary_obj_, x, _start),         \
                (int)ENV_PASTE3(_binary_obj_, x, _size),         \
                type);                                           \
-    } while (0;)
+    } while (0);
 
 #define env_print_flst() \
     cprintf("[env_print_flst] total of %u free environments\n", \
