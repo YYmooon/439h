@@ -101,8 +101,8 @@ boot_alloc(uint32_t n)
     //
     // LAB 2: Your code here.
     if((physaddr_t)nextfree + n > KERNBASE + NPTENTRIES * PGSIZE){
-            panic ("Out of memory!");
-        }
+        panic ("Out of memory!");
+    }
 
     if(n == 0){
         return nextfree;
@@ -697,7 +697,22 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
     // LAB 3: Your code here.
-    perm |= PTE_U | PTE_P;
+uintptr_t start = (uintptr_t) ROUNDDOWN(va, PGSIZE);
+        uintptr_t end = (uintptr_t) ROUNDUP(va + len, PGSIZE);
+        perm |= PTE_P;
+
+        // Start allocating pages, by setting PTEs
+        for (; start < end; start += PGSIZE) {
+                pte_t *pte = pgdir_walk(env->env_pgdir, (void *) start, 0);
+                if (start >= ULIM || !pte || !(*pte && perm == perm)) { // invalid
+                        user_mem_check_addr = start < (uint32_t) va ? (uint32_t) va : start;
+                        return -E_FAULT;
+                }
+        }
+
+        return 0;
+
+/*    perm |= PTE_U | PTE_P;
     
     pte_t *pte;
     uintptr_t current_va;
@@ -719,6 +734,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
     }
 
     return 0;
+*/
 }
 
 //

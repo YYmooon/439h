@@ -65,8 +65,36 @@ _pgfault_upcall:
 	// ways as registers become unavailable as scratch space.
 	//
 	// LAB 4: Your code here.
-    
-    // throw away the top two values
+	movl %esp, %ebx
+
+	// Restore the trap-time registers.
+	// LAB 4: Your code here.
+	movl 48(%esp), %ecx
+	movl 40(%esp), %edx
+	movl %ecx, %esp
+	pushl %edx
+	movl %ebx, %esp
+	subl $4, %ecx
+	movl %ecx, 48(%esp)
+	addl $8, %esp
+	popal
+
+	// Restore eflags from the stack.
+	// LAB 4: Your code here.
+	// skip trap-time eip
+	addl $4, %esp
+	// restore eflags
+	popfl
+
+	// Switch back to the adjusted trap-time stack.
+	// LAB 4: Your code here.
+	popl %esp
+
+	// Return to re-execute the instruction that faulted.
+	// LAB 4: Your code here.
+	ret
+
+/*    // throw away the top two values
     addl $8, %esp           // throw away the top two struct elements
 
     // put the old eip where we can ret to it
@@ -104,5 +132,6 @@ _pgfault_upcall:
 	// LAB 4: Your code here.
 
     ret
+*/
 
 

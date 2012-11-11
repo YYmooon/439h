@@ -200,9 +200,17 @@ env_setup_vm(struct Env *e)
 
     // LAB 3: Your code here.
     e->env_pgdir = (pde_t *) page2kva(p);
-    memmove(e->env_pgdir, kern_pgdir, PGSIZE);
-        memset(e->env_pgdir, 0, PDX(UTOP) * sizeof(pde_t));
-        p->pp_ref++;
+    memset(e->env_pgdir, 0, PGSIZE);
+    p->pp_ref++;
+
+    // Copy all mappings from kern_pgdir above UTOP
+    for(i = PDX(UTOP); i < NPDENTRIES; i++){
+        e->env_pgdir[i] = kern_pgdir[i];
+    }
+
+    // UVPT maps the env's own page table read-only.
+    // Permissions: kernel R, user R
+    e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
 
     return 0;
 }
@@ -267,6 +275,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
     // Enable interrupts while in user mode.
     // LAB 4: Your code here.
+    e->env_tf.tf_eflags |= FL_IF;
 
     // Clear the page fault handler until user installs one.
     e->env_pgfault_upcall = 0;
@@ -538,6 +547,20 @@ env_run(struct Env *e)
     //  e->env_tf to sensible values.
 
     // LAB 3: Your code here.
+	if (curenv == NULL || curenv->env_id != e->env_id) { // context switch!
+                if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
+                        curenv->env_status = ENV_RUNNABLE;
+                }
+                curenv = e;
+                curenv->env_status = ENV_RUNNING;
+                curenv->env_runs++;
+                lcr3(PADDR(curenv->env_pgdir));
+        }
+
+        unlock_kernel();
+        env_pop_tf(&curenv->env_tf);
+
+/*
     if(curenv != e){
         if(curenv)
             curenv->env_status = ENV_RUNNABLE;
@@ -548,5 +571,6 @@ env_run(struct Env *e)
     }
     unlock_kernel();
     env_pop_tf(&curenv->env_tf);
+*/
 }
 
