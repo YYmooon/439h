@@ -137,56 +137,6 @@ sys_env_set_status(envid_t envid, int status)
 
         e->env_status = status;
         return 0;
-
-/*
-    ZERO_CALL_SUPPORT(envid);
-    // Hint: Use the 'envid2env' function from kern/env.c to translate an
-    // envid to a struct Env.
-    // You should set envid2env's third argument to 1, which will
-    // check whether the current environment has permission to set
-    // envid's status.
-
-    // LAB 4: Your code here.
-    struct Env* e;
-    int res = envid2env(envid, &e, 1);
-    if(res < 0) return res;             // -E_BAD_ENV
-
-    if(status == ENV_FREE) {
-        // a user should not be able to mark an environment as free,
-        // that should be done by syscalling sys_env_destroy.
-        cprintf("[sys_env_set_status] ERROR: cannot free an env this way\n");
-        return -E_INVAL;
-    }
-
-    if(e->env_type == ENV_TYPE_IDLE) {
-        if((status == ENV_DYING) ||
-           (status == ENV_RUNNABLE)) {
-            // This code prevents users from setting idle environments'
-            // status flags to the following values:
-            //  - ENV_DYING     a user shouldn't be able to kill a kernel env
-            //  - ENV_RUINNABLE idle envs can only be entered by the kernel
-            cprintf("[sys_env_set_status] ERROR: cannot set status of an idle env\n");
-            return -E_INVAL;
-        }
-    } 
-    if(e->env_type == ENV_TYPE_USER) {
-        if((status == ENV_DYING)        ||
-           (status == ENV_RUNNABLE)     ||
-           (status == ENV_RUNNING)      ||
-           (status == ENV_NOT_RUNNABLE)) {
-            // if the status is legal...
-            e->env_status = status;
-            return 0;
-        } else {
-            // don't let envs enter states which aren't valid states
-            // according to the env states enum
-            cprintf("[sys_env_set_status] ERROR: unknown status %08x\n", status);
-            return -E_INVAL;
-        }
-    } 
-    cprintf("[sys_env_set_status] ERROR: fell throug!h\n");
-    return -E_INVAL;
-	*/
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -200,19 +150,6 @@ sys_env_set_status(envid_t envid, int status)
 static int
 sys_env_set_pgfault_upcall(envid_t envid, void *func)
 {
-	/*// LAB 4: Your code here.
-        struct Env *e;
-       
-        // Envid valid and caller has perms to access it
-        if (envid2env(envid, &e, 1) < 0) {
-                return -E_BAD_ENV;
-        }
-
-        e->env_pgfault_upcall = func;
-        user_mem_assert(e, func, 4, 0);
-
-        return 0;
-*/
     ZERO_CALL_SUPPORT(envid);
     // LAB 4: Your code here.
     struct Env* e;
@@ -223,18 +160,6 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
     // okay fine do it
     e->env_pgfault_upcall = func;
     return 0;
-/*	
-    ZERO_CALL_SUPPORT(envid);
-    // LAB 4: Your code here.
-    struct Env* e;
-    int res = envid2env(envid, &e, 1);
-    if(res < 0) return res; // permission faults...
-
-    user_mem_assert(curenv, func, PGSIZE, PTE_U | PTE_P);
-    // okay fine do it
-    e->env_pgfault_upcall = func;
-    return 0;
-*/	
 }
 
 // Allocate a page of memory and map it at 'va' with permission
@@ -298,64 +223,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
         }
 
         return 0;
-
-
-/*    // Hint: This function is a wrapper around page_alloc() and
-    //   page_insert() from kern/pmap.c.
-    //   Most of the new code you write should be to check the
-    //   parameters for correctness.
-    struct Env *e;
-       
-	//   If page_insert() fails, remember to free the page you
-    //   allocated!
-
-    // LAB 4: Your code here.
-    ZERO_CALL_SUPPORT(envid);
-    struct Env* target;
-    struct Page* p;
-
-    int res = envid2env(envid, &target, 1); 
-    if(res < 0) return res; // permissions error case
-
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
-    if(perm_check) {
-        cprintf("[sys_page_alloc] ERROR: the permission bits are off\n");
-        cprintf("[sys_page_alloc] argument: %08x delta: %08x legal perms: %08x\n",
-                perm, perm_check, PTE_AVAIL | PTE_W | PTE_P | PTE_U);
-        // the permission bits are wrong..
-        return -E_INVAL;
-    }
-
-    if(((unsigned) va % PGSIZE) != 0) {
-        // the VA is not page-aligned
-        cprintf("[sys_page_alloc] ERROR: the VA is not page alligned\n");
-        return -E_INVAL;
-    }
-
-    if((unsigned) va >= UTOP) {
-        // the VA is above UTOP
-        cprintf("[sys_page_alloc] ERROR: the VA is out of user space\n");
-        return -E_INVAL;
-    }
-
-    if((p = page_alloc(ALLOC_ZERO))) {
-        // nonzero return value, all is well so far
-        int i = page_insert(target->env_pgdir, p, va, PTE_P | PTE_U | perm);
-        if(i == 0) {
-            // all is well
-            cprintf("[sys_page_alloc] insert returned %d, all well\n", i);
-            return 0;
-        } else {
-            page_free(p);
-            cprintf("[sys_page_alloc] ERROR: page_insert returned %d\n", i);
-            return i;
-        }
-    } else {
-        // no page was allocated, die
-        cprintf("[sys_page_alloc] ERROR: no free memory\n");
-        return -E_NO_MEM;
-    }
-*/
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
@@ -432,44 +299,6 @@ sys_page_map(envid_t srcenvid, void *srcva,
         }
 
         return 0;
-
-
-/*    ZERO_CALL_SUPPORT(srcenvid);
-    ZERO_CALL_SUPPORT(dstenvid);
-
-    // Hint: This function is a wrapper around page_lookup() and
-    //   page_insert() from kern/pmap.c.
-    //   Again, most of the new code you write should be to check the
-    //   parameters for correctness.
-    //   Use the third argument to page_lookup() to
-    //   check the current permissions on the page.
-
-    // LAB 4: Your code here.
-    int res;
-    struct Env * src, * dst;
-    res =  envid2env(srcenvid, &src, 1);
-    if(res) return res;
-    res = envid2env(dstenvid, &dst, 1);
-    if(res) return res;
-
-    if(((uint32_t) srcva >= UTOP || PGOFF(srcva)) || 
-       ((uint32_t) dstva >= UTOP || PGOFF(dstva)))
-        // not page alligned or out of legal range
-        return -E_INVAL;
-
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
-    if(perm_check)
-        // the permission bits are wrong..
-        // will only catch perm bits that should never be set
-        return -E_INVAL;
-
-  pte_t *pte;
-  struct Page *page = page_lookup(src->env_pgdir, srcva, &pte);
-  if(!page || ((perm & PTE_W) && !(*pte & PTE_W)))
-    return -E_INVAL;
-
-  return page_insert(dst->env_pgdir, page, dstva, PTE_P | PTE_U | perm);
-*/
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -502,25 +331,6 @@ sys_page_unmap(envid_t envid, void *va)
         page_remove(e->env_pgdir, va);
 
         return 0;
-
-	/*
-    ZERO_CALL_SUPPORT(envid);
-    // Hint: This function is a wrapper around page_remove().
-    // LAB 4: Your code here.
-    struct Env *env;
-    int res;
-    res = envid2env(envid, &env, 1);
-
-    if(res < 0)
-        // -E_BAD_ENV
-        return res;
-
-    if((unsigned) va >= UTOP || PGOFF(va))
-        // not page alligned
-        return -E_INVAL;
-
-    page_remove(env->env_pgdir, va);
-    return 0;*/
 }
 
 // Try to send 'value' to the target env 'envid'.
@@ -683,6 +493,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     }
     else if(syscallno == SYS_env_set_pgfault_upcall) {
         return sys_env_set_pgfault_upcall((envid_t) a1, (void*) a2);
+    }
+    else if(syscallno == SYS_ipc_try_send) {
+        return (int32_t) sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
+    }
+    else if(syscallno == SYS_ipc_recv) {
+        return sys_ipc_recv((void *) a1);
     }
     else {
         return -E_INVAL;
