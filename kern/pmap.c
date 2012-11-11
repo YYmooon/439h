@@ -179,7 +179,7 @@ mem_init(void)
 
     check_page_alloc();
    
-    check_page();
+	check_page();
 
     //////////////////////////////////////////////////////////////////////
     // Now we set up virtual memory
@@ -325,44 +325,58 @@ internal_free_page_list_len() {
 void
 page_init(void)
 {
-    // LAB 4:
-    // Change your code to mark the physical page at MPENTRY_PADDR
-    // as in use
+	// LAB 4:
+	// Change your code to mark the physical page at MPENTRY_PADDR
+	// as in use
 
-    // The example code here marks all physical pages as free.
-    // However this is not truly the case.  What memory is free?
-    //  1) Mark physical page 0 as in use.
-    //     This way we preserve the real-mode IDT and BIOS structures
-    //     in case we ever need them.  (Currently we don't, but...)
-    //  2) The rest of base memory, [PGSIZE, npages_basemem * PGSIZE)
-    //     is free.
-    //  3) Then comes the IO hole [IOPHYSMEM, EXTPHYSMEM), which must
-    //     never be allocated.
-    //  4) Then extended memory [EXTPHYSMEM, ...).
-    //     Some of it is in use, some is free. Where is the kernel
-    //     in physical memory?  Which pages are already in use for
-    //     page tables and other data structures?
-    //
-    // Change the code to reflect this.
-    // NB: DO NOT actually touch the physical memory corresponding to
-    // free pages!
+	// The example code here marks all physical pages as free.
+	// However this is not truly the case.  What memory is free?
+	//  1) Mark physical page 0 as in use.
+	//     This way we preserve the real-mode IDT and BIOS structures
+	//     in case we ever need them.  (Currently we don't, but...)
+	//  2) The rest of base memory, [PGSIZE, npages_basemem * PGSIZE)
+	//     is free.
+	//  3) Then comes the IO hole [IOPHYSMEM, EXTPHYSMEM), which must
+	//     never be allocated.
+	//  4) Then extended memory [EXTPHYSMEM, ...).
+	//     Some of it is in use, some is free. Where is the kernel
+	//     in physical memory?  Which pages are already in use for
+	//     page tables and other data structures?
+	//
+	// Change the code to reflect this.
+	// NB: DO NOT actually touch the physical memory corresponding to
+	// free pages!
+	size_t i;
+	physaddr_t pa;
 
-#define RANGE(i, min, max) (i >= min) && (i <= max) ? 1 : 0
-#define UNUSABLE(i)        ((i == 0) |\
-                            (i == MPENTRY_PADDR) |\
-                            RANGE(i, IOPHYSMEM, (unsigned) PADDR(boot_alloc(0)-1)))
+	pages[0].pp_ref = 1;
 
-    size_t i;
-    for(i = 0; i < npages; i++) {
-        if(UNUSABLE(i * PGSIZE)) {
-            pages[i].pp_ref = 9001; // IT'S OVER NINE THOUSAND
-        } else {
-            pages[i].pp_ref = 0;
-            pages[i].pp_link = page_free_list;
-            page_free_list = &pages[i];
-        }
-    }
+	for(i = 1; i < npages_basemem; i++){
+		if(i == MPENTRY_PADDR/PGSIZE){
+			pages[i].pp_ref = 1;
+		}
+		else {
+			pages[i].pp_ref = 0;
+                	pages[i].pp_link = page_free_list;
+                	page_free_list = &pages[i];
+		}
+	}
+
+	for(i = (IOPHYSMEM/PGSIZE); i < (EXTPHYSMEM/PGSIZE); i++) {
+		pages[i].pp_ref = 1;
+	}
+
+	for(i = (EXTPHYSMEM/PGSIZE); i < (PADDR(boot_alloc(0))/PGSIZE); i++) {
+		pages[i].pp_ref = 1;
+	}
+
+	for(i = PADDR(boot_alloc(0))/PGSIZE; i < npages; i++){
+		pages[i].pp_ref = 0;
+		pages[i].pp_link = page_free_list;
+		page_free_list = &pages[i];
+	}
 }
+
 
 //
 // Allocates a physical page.  If (alloc_flags & ALLOC_ZERO), fills the entire
@@ -639,38 +653,38 @@ tlb_invalidate(pde_t *pgdir, void *va)
 void *
 mmio_map_region(physaddr_t pa, size_t size)
 {
-    // Where to start the next region.  Initially, this is the
-    // beginning of the MMIO region.  Because this is static, its
-    // value will be preserved between calls to mmio_map_region
-    // (just like nextfree in boot_alloc).
-    static uintptr_t base = MMIOBASE;
+	// Where to start the next region.  Initially, this is the
+	// beginning of the MMIO region.  Because this is static, its
+	// value will be preserved between calls to mmio_map_region
+	// (just like nextfree in boot_alloc).
+	static uintptr_t base = MMIOBASE;
 
-    // Reserve size bytes of virtual memory starting at base and
-    // map physical pages [pa,pa+size) to virtual addresses
-    // [base,base+size).  Since this is device memory and not
-    // regular DRAM, you'll have to tell the CPU that it isn't
-    // safe to cache access to this memory.  Luckily, the page
-    // tables provide bits for this purpose; simply create the
-    // mapping with PTE_PCD|PTE_PWT (cache-disable and
-    // write-through) in addition to PTE_W.  (If you're interested
-    // in more details on this, see section 10.5 of IA32 volume
-    // 3A.)
-    //
-    // Be sure to round size up to a multiple of PGSIZE and to
-    // handle if this reservation would overflow MMIOLIM (it's
-    // okay to simply panic if this happens).
-    //
-    // Hint: The staff solution uses boot_map_region.
-    //
-    // Your code here:
-    size_t rounded_size = ROUNDUP(size, PGSIZE);
-    if(base + rounded_size > MMIOLIM){
-        panic("MMIOLIM exceeded!");
-    }
-    boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT | PTE_W);
-    unsigned old_base = (unsigned) base;
-    base += rounded_size;
-    return (void*) old_base;
+	// Reserve size bytes of virtual memory starting at base and
+	// map physical pages [pa,pa+size) to virtual addresses
+	// [base,base+size).  Since this is device memory and not
+	// regular DRAM, you'll have to tell the CPU that it isn't
+	// safe to cache access to this memory.  Luckily, the page
+	// tables provide bits for this purpose; simply create the
+	// mapping with PTE_PCD|PTE_PWT (cache-disable and
+	// write-through) in addition to PTE_W.  (If you're interested
+	// in more details on this, see section 10.5 of IA32 volume
+	// 3A.)
+	//
+	// Be sure to round size up to a multiple of PGSIZE and to
+	// handle if this reservation would overflow MMIOLIM (it's
+	// okay to simply panic if this happens).
+	//
+	// Hint: The staff solution uses boot_map_region.
+	//
+	// Your code here:
+	size_t rounded_size = ROUNDUP(size, PGSIZE);
+	if(base + rounded_size > MMIOLIM){
+		panic("MMIOLIM exceeded!");
+	}
+	boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT | PTE_W);
+	unsigned old_base = (unsigned) base;
+	base = base + rounded_size;
+	return (void*) old_base;
 }
 
 static uintptr_t user_mem_check_addr;
@@ -765,60 +779,60 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 static void
 check_page_free_list(bool only_low_memory)
 {
-    struct Page *pp;
-    unsigned pdx_limit = only_low_memory ? 1 : NPDENTRIES;
-    int nfree_basemem = 0, nfree_extmem = 0;
-    char *first_free_page;
+	struct Page *pp;
+	unsigned pdx_limit = only_low_memory ? 1 : NPDENTRIES;
+	int nfree_basemem = 0, nfree_extmem = 0;
+	char *first_free_page;
 
-    if (!page_free_list)
-        panic("'page_free_list' is a null pointer!");
+	if (!page_free_list)
+		panic("'page_free_list' is a null pointer!");
 
-    if (only_low_memory) {
-        // Move pages with lower addresses first in the free
-        // list, since entry_pgdir does not map all pages.
-        struct Page *pp1, *pp2;
-        struct Page **tp[2] = { &pp1, &pp2 };
-        for (pp = page_free_list; pp; pp = pp->pp_link) {
-            int pagetype = PDX(page2pa(pp)) >= pdx_limit;
-            *tp[pagetype] = pp;
-            tp[pagetype] = &pp->pp_link;
-        }
-        *tp[1] = 0;
-        *tp[0] = pp2;
-        page_free_list = pp1;
-    }
+	if (only_low_memory) {
+		// Move pages with lower addresses first in the free
+		// list, since entry_pgdir does not map all pages.
+		struct Page *pp1, *pp2;
+		struct Page **tp[2] = { &pp1, &pp2 };
+		for (pp = page_free_list; pp; pp = pp->pp_link) {
+			int pagetype = PDX(page2pa(pp)) >= pdx_limit;
+			*tp[pagetype] = pp;
+			tp[pagetype] = &pp->pp_link;
+		}
+		*tp[1] = 0;
+		*tp[0] = pp2;
+		page_free_list = pp1;
+	}
 
-    // if there's a page that shouldn't be on the free list,
-    // try to make sure it eventually causes trouble.
-    for (pp = page_free_list; pp; pp = pp->pp_link)
-        if (PDX(page2pa(pp)) < pdx_limit)
-            memset(page2kva(pp), 0x97, 128);
+	// if there's a page that shouldn't be on the free list,
+	// try to make sure it eventually causes trouble.
+	for (pp = page_free_list; pp; pp = pp->pp_link)
+		if (PDX(page2pa(pp)) < pdx_limit)
+			memset(page2kva(pp), 0x97, 128);
 
-    first_free_page = (char *) boot_alloc(0);
-    for (pp = page_free_list; pp; pp = pp->pp_link) {
-        // check that we didn't corrupt the free list itself
-        assert(pp >= pages);
-        assert(pp < pages + npages);
-        assert(((char *) pp - (char *) pages) % sizeof(*pp) == 0);
+	first_free_page = (char *) boot_alloc(0);
+	for (pp = page_free_list; pp; pp = pp->pp_link) {
+		// check that we didn't corrupt the free list itself
+		assert(pp >= pages);
+		assert(pp < pages + npages);
+		assert(((char *) pp - (char *) pages) % sizeof(*pp) == 0);
 
-        // check a few pages that shouldn't be on the free list
-        assert(page2pa(pp) != 0);
-        assert(page2pa(pp) != IOPHYSMEM);
-        assert(page2pa(pp) != EXTPHYSMEM - PGSIZE);
-        assert(page2pa(pp) != EXTPHYSMEM);
-        assert(page2pa(pp) < EXTPHYSMEM || (char *) page2kva(pp) >= first_free_page);
-        // (new test for lab 4)
-        assert(page2pa(pp) != MPENTRY_PADDR);
+		// check a few pages that shouldn't be on the free list
+		assert(page2pa(pp) != 0);
+		assert(page2pa(pp) != IOPHYSMEM);
+		assert(page2pa(pp) != EXTPHYSMEM - PGSIZE);
+		assert(page2pa(pp) != EXTPHYSMEM);
+		assert(page2pa(pp) < EXTPHYSMEM || (char *) page2kva(pp) >= first_free_page);
+		// (new test for lab 4)
+		assert(page2pa(pp) != MPENTRY_PADDR);
 
-        if (page2pa(pp) < EXTPHYSMEM)
-            ++nfree_basemem;
-        else
-            ++nfree_extmem;
-    }
+		if (page2pa(pp) < EXTPHYSMEM)
+			++nfree_basemem;
+		else
+			++nfree_extmem;
+	}
 
-    assert(nfree_basemem > 0);
-    assert(nfree_extmem > 0);
-    cprintf("check_page_free_list(%u) succeeded!\n", only_low_memory);
+	assert(nfree_basemem > 0);
+	assert(nfree_extmem > 0);
+    cprintf("check_page_free_list(%u) passed!\n", only_low_memory);
 }
 
 //
@@ -1195,3 +1209,4 @@ check_page_installed_pgdir(void)
 
     cprintf("check_page_installed_pgdir() succeeded!\n");
 }
+
