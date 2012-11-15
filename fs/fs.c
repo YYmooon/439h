@@ -56,13 +56,21 @@ free_block(uint32_t blockno)
 int
 alloc_block(void)
 {
-    // The bitmap consists of one or more blocks.  A single bitmap block
-    // contains the in-use bits for BLKBITSIZE blocks.  There are
-    // super->s_nblocks blocks in the disk altogether.
+	// The bitmap consists of one or more blocks.  A single bitmap block
+	// contains the in-use bits for BLKBITSIZE blocks.  There are
+	// super->s_nblocks blocks in the disk altogether.
 
-    // LAB 5: Your code here.
-    panic("alloc_block not implemented");
-    return -E_NO_DISK;
+	// LAB 5: Your code here.
+
+  unsigned blockno = 0;
+  for(blockno = 0; blockno <= super->s_nblocks; blockno++) {
+    if(!bitmap[blockno/32] | 1<<(blockno%32)) {
+	    bitmap[blockno/32] &= ~(1<<(blockno%32));
+      return blockno;
+    }
+  }
+
+	return -E_NO_DISK;
 }
 
 // Validate the file system bitmap.
