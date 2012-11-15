@@ -27,7 +27,7 @@ va_is_dirty(void *va)
 bool
 va_mark_dirty(void *va)
 {
-	return vpt[PGNUM(va)] |= PTE_D;
+    return vpt[PGNUM(va)] |= PTE_D;
 }
 // Fault any disk block that is read or written in to memory by
 // loading it from disk.
@@ -54,13 +54,42 @@ bc_pgfault(struct UTrapframe *utf)
     // the page dirty).
     //
     // LAB 5: Your code here
-    panic("bc_pgfault not implemented");
+    //
+    if(va_is_mapped(pg_aligned_va)) {
+        //// the file is mapped
+        if(utf->utf_err == T_PGFLT) {
+          // someone tried to write to the memory range...
+          // we don't really care if the page was dirty or not, it's dirty now.
+          va_mark_dirty(pg_aligned_va);
+          sys_page_map(0, pg_aligned_va, 0, pg_aligned_va, PTE_P | PTE_U | PTE_W);
+        } else {
+          // how the shit does this happen...
+          // don't do anything interesting
+        }
+
+    } else {
+        //// the file is unmapped
+        // Load the sector in from memory
+        // Node that this is bloody stupid as it only allows us access to the first
+        // 3GB of space
+        sys_page_alloc(0, addr, PTE_P | PTE_U | PTE_W);
+        ide_read(blockno, addr, BLKSECTS);  // the sector size is the block size but w/e
+        sys_page_map(0, addr, 0, addr, PTE_P | PTE_U);
+    }
 
     // Check that the block we read was allocated. (exercise for
     // the reader: why do we do this *after* reading the block
     // in?)
     if (bitmap && block_is_free(blockno))
         panic("reading free block %08x\n", blockno);
+      void* pg_aligned_va = (void*) ROUNDDOWN(addr, PGSIZE);
+
+
+    // Check that the block we read was allocated. (exercise for
+    // the reader: why do we do this *after* reading the block
+    // in?)
+    if (bitmap && block_is_free(blockno))
+    	panic("reading free block %08x\n", blockno);
 }
 
 // Flush the contents of the block containing VA out to disk if
