@@ -1,4 +1,3 @@
-
 #include "fs.h"
 
 // Return the virtual address of this disk block.
@@ -24,6 +23,12 @@ va_is_dirty(void *va)
     return (vpt[PGNUM(va)] & PTE_D) != 0;
 }
 
+// util function
+bool
+va_mark_dirty(void *va)
+{
+	return vpt[PGNUM(va)] |= PTE_D;
+}
 // Fault any disk block that is read or written in to memory by
 // loading it from disk.
 // Hint: Use ide_read and BLKSECTS.
@@ -74,7 +79,8 @@ flush_block(void *addr)
         panic("flush_block of bad va %08x", addr);
 
     // LAB 5: Your code here.
-    panic("flush_block not implemented");
+    if(va_is_dirty(addr) && va_is_mapped(addr))
+        ide_write(blockno, addr, BLKSECTS);
 }
 
 // Test that the block cache works, by smashing the superblock and
