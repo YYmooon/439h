@@ -16,6 +16,7 @@
 #include <kern/kdebug.h>
 
 static struct Taskstate ts;
+static int faultcount;
 
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
@@ -72,6 +73,7 @@ void
 trap_init(void)
 {
     extern struct Segdesc gdt[];
+    faultcount = 0;
 
     // LAB 3: Your code here.
     extern void divide();
@@ -246,14 +248,11 @@ trap_dispatch(struct Trapframe *tf)
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
+        cprintf("[trap_dispatch] Engaging page_fault_handler\n");
         page_fault_handler(tf);
-    }
-
-    if(tf->tf_trapno == T_BRKPT){
+    } else if(tf->tf_trapno == T_BRKPT){
         monitor(tf);
-    }
-
-    if(tf->tf_trapno == T_SYSCALL){
+    } else if(tf->tf_trapno == T_SYSCALL){
         tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
             tf->tf_regs.reg_edx,
             tf->tf_regs.reg_ecx,
@@ -266,7 +265,7 @@ trap_dispatch(struct Trapframe *tf)
     // Handle spurious interrupts
     // The hardware sometimes raises these because of noise on the
     // IRQ line or other reasons. We don't care.
-    if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
+    else if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
         cprintf("Spurious interrupt on irq 7\n");
         print_trapframe(tf);
         return;
@@ -275,26 +274,18 @@ trap_dispatch(struct Trapframe *tf)
     // Handle clock interrupts. Don't forget to acknowledge the
     // interrupt using lapic_eoi() before calling the scheduler!
     // LAB 4: Your code here.
-    if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER){
+    else if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER){
         lapic_eoi();
         sched_yield();
         return;
     }
 
     // Unexpected trap: The user process or the kernel has a bug.
-    print_trapframe(tf);
-    if (tf->tf_cs == GD_KT)
-        panic("unhandled trap in kernel");
-    else {
-        env_destroy(curenv);
-        return;
-    }
-
-    // Unexpected trap: The user process or the kernel has a bug.
-    print_trapframe(tf);
-    if (tf->tf_cs == GD_KT) {
+    else if (tf->tf_cs == GD_KT) {
+        print_trapframe(tf);
         panic("unhandled trap in kernel");
     } else {
+        print_trapframe(tf);
         env_destroy(curenv);
         return;
     }
@@ -316,6 +307,10 @@ trap(struct Trapframe *tf)
     // fails, DO NOT be tempted to fix it by inserting a "cli" in
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
+
+    faultcount++;
+    if(faultcount > 25)
+        panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
         // Trapped from user mode.
@@ -370,11 +365,11 @@ page_fault_handler(struct Trapframe *tf)
     // Handle kernel-mode page faults.
 
     // LAB 3: Your code here.
-    if (tf->tf_cs == GD_KT) {
+    if((tf->tf_cs & 3) != 3) {
         print_trapframe(tf);
         panic("kernel page fault va %08x ip %08x env %x\n",
                       fault_va, tf->tf_eip, curenv->env_id);
-        }
+    }
 
     // We've already handled kernel-mode exceptions, so if we get here,
     // the page fault happened in user mode.
@@ -408,7 +403,7 @@ page_fault_handler(struct Trapframe *tf)
     //   (the 'tf' variable points at 'curenv->env_tf').
 
     // LAB 4: Your code here.
-    if(curenv->env_pgfault_upcall) {
+    else if(curenv->env_pgfault_upcall) {
         cprintf("[page_fault_handler] User fault with upcall...\n"); 
         print_trapframe(tf);
         cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
@@ -426,7 +421,6 @@ page_fault_handler(struct Trapframe *tf)
         user_mem_assert(curenv, (void *) raw_addr - sizeof(struct UTrapframe) - 8, 
                         sizeof(struct UTrapframe) + 8, PTE_U | PTE_W | PTE_P);
         raw_addr -= sizeof(struct UTrapframe);
-
 
         utf = (struct UTrapframe*) raw_addr;
 
