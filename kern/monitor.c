@@ -289,7 +289,7 @@ mon_showmappings(int argc, char **argv, struct Trapframe *tf){
                 char * end1;
                 char * end2;
                 uintptr_t va_lower_bound = strtol(argv[1], &end1, 16);
-                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);		
+                uintptr_t va_upper_bound = strtol(argv[2], &end2, 16);      
 
                 if(page2kva(page) >= ((void *) va_lower_bound) && page2kva(page) <= ((void *) va_upper_bound)){
 

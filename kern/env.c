@@ -246,11 +246,11 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
         generation = 1 << ENVGENSHIFT;
     e->env_id = generation | (e - envs);
 
-	// Set the basic status variables.
-	e->env_parent_id = parent_id;
-	e->env_type = ENV_TYPE_USER;
-	e->env_status = ENV_RUNNABLE;
-	e->env_runs = 0;
+    // Set the basic status variables.
+    e->env_parent_id = parent_id;
+    e->env_type = ENV_TYPE_USER;
+    e->env_status = ENV_RUNNABLE;
+    e->env_runs = 0;
 
     // Clear out all the saved register state,
     // to prevent the register values
@@ -418,6 +418,9 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
     env_alloc(&env, 0);
     env->env_type = type;
     load_icode(env, binary, size);
+
+    // If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+    // LAB 5: Your code here.
 }
 
 //
@@ -481,20 +484,20 @@ env_free(struct Env *e)
 void
 env_destroy(struct Env *e)
 {
-	// If e is currently running on other CPUs, we change its state to
-	// ENV_DYING. A zombie environment will be freed the next time
-	// it traps to the kernel.
-	if (e->env_status == ENV_RUNNING && curenv != e) {
-		e->env_status = ENV_DYING;
-		return;
-	}
+    // If e is currently running on other CPUs, we change its state to
+    // ENV_DYING. A zombie environment will be freed the next time
+    // it traps to the kernel.
+    if (e->env_status == ENV_RUNNING && curenv != e) {
+        e->env_status = ENV_DYING;
+        return;
+    }
 
-	env_free(e);
+    env_free(e);
 
-	if (curenv == e) {
-		curenv = NULL;
-		sched_yield();
-	}
+    if (curenv == e) {
+        curenv = NULL;
+        sched_yield();
+    }
 }
 
 
@@ -507,17 +510,17 @@ env_destroy(struct Env *e)
 void
 env_pop_tf(struct Trapframe *tf)
 {
-	// Record the CPU we are running on for user-space debugging
-	curenv->env_cpunum = cpunum();
+    // Record the CPU we are running on for user-space debugging
+    curenv->env_cpunum = cpunum();
 
-	__asm __volatile("movl %0,%%esp\n"
-		"\tpopal\n"
-		"\tpopl %%es\n"
-		"\tpopl %%ds\n"
-		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
-		"\tiret"
-		: : "g" (tf) : "memory");
-	panic("iret failed");  /* mostly to placate the compiler */
+    __asm __volatile("movl %0,%%esp\n"
+        "\tpopal\n"
+        "\tpopl %%es\n"
+        "\tpopl %%ds\n"
+        "\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
+        "\tiret"
+        : : "g" (tf) : "memory");
+    panic("iret failed");  /* mostly to placate the compiler */
 }
 
 //
@@ -547,7 +550,7 @@ env_run(struct Env *e)
     //  e->env_tf to sensible values.
 
     // LAB 3: Your code here.
-	if (curenv == NULL || curenv->env_id != e->env_id) { // context switch!
+    if (curenv == NULL || curenv->env_id != e->env_id) { // context switch!
                 if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
                         curenv->env_status = ENV_RUNNABLE;
                 }

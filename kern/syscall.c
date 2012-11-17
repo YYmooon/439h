@@ -121,22 +121,38 @@ sys_exofork(void)
 static int
 sys_env_set_status(envid_t envid, int status)
 {
-	ZERO_CALL_SUPPORT(envid);
-	struct Env *e;
+    ZERO_CALL_SUPPORT(envid);
+    struct Env *e;
        
-	//  -E_BAD_ENV if environment envid doesn't currently exist,
-	//      or the caller doesn't have permission to change envid.
+    //  -E_BAD_ENV if environment envid doesn't currently exist,
+    //      or the caller doesn't have permission to change envid.
         if(envid2env(envid, &e, 1) < 0) {
                 return -E_BAD_ENV;
         }
 
-	//  -E_INVAL if status is not a valid status for an environment.
+    //  -E_INVAL if status is not a valid status for an environment.
         if((status != ENV_RUNNABLE) && (status != ENV_NOT_RUNNABLE)){
                 return -E_INVAL;
         }
 
         e->env_status = status;
         return 0;
+}
+
+// Set envid's trap frame to 'tf'.
+// tf is modified to make sure that user environments always run at code
+// protection level 3 (CPL 3) with interrupts enabled.
+//
+// Returns 0 on success, < 0 on error.  Errors are:
+//  -E_BAD_ENV if environment envid doesn't currently exist,
+//      or the caller doesn't have permission to change envid.
+static int
+sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+    // LAB 5: Your code here.
+    // Remember to check whether the user has supplied us with a good
+    // address!
+    panic("sys_env_set_trapframe not implemented");
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -181,9 +197,9 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 static int
 sys_page_alloc(envid_t envid, void *va, int perm)
 {
-	ZERO_CALL_SUPPORT(envid);
+    ZERO_CALL_SUPPORT(envid);
 
-	// Hint: This function is a wrapper around page_alloc() and
+    // Hint: This function is a wrapper around page_alloc() and
         //   page_insert() from kern/pmap.c.
         //   Most of the new code you write should be to check the
         //   parameters for correctness.
@@ -194,8 +210,8 @@ sys_page_alloc(envid_t envid, void *va, int perm)
         struct Env *e;
         struct Page *page;
       
-	//  -E_BAD_ENV if environment envid doesn't currently exist,
-	//      or the caller doesn't have permission to change envid. 
+    //  -E_BAD_ENV if environment envid doesn't currently exist,
+    //      or the caller doesn't have permission to change envid. 
         if(envid2env(envid, &e, 1) < 0){
                 return -E_BAD_ENV;
         }
@@ -207,16 +223,16 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
         //  -E_INVAL if perm is inappropriate (see above).
         if(((perm & PTE_U) == 0 || (perm & PTE_P) == 0) ||
-	    ((perm & ~(PTE_U | PTE_P | PTE_W | PTE_AVAIL)) != 0)){
+        ((perm & ~(PTE_U | PTE_P | PTE_W | PTE_AVAIL)) != 0)){
                 return -E_INVAL;
         }
 
-	//  -E_NO_MEM if there's no memory to allocate the new page,
+    //  -E_NO_MEM if there's no memory to allocate the new page,
         if((page = page_alloc(ALLOC_ZERO)) == NULL){
                 return -E_NO_MEM;
         }
 
-	//      or to allocate any necessary page tables.
+    //      or to allocate any necessary page tables.
         if(page_insert(e->env_pgdir, page, va, perm) < 0) {
                 page_free(page);
                 return -E_NO_MEM;
@@ -245,8 +261,8 @@ static int
 sys_page_map(envid_t srcenvid, void *srcva,
          envid_t dstenvid, void *dstva, int perm)
 {
-	ZERO_CALL_SUPPORT(srcenvid);
-	ZERO_CALL_SUPPORT(dstenvid);
+    ZERO_CALL_SUPPORT(srcenvid);
+    ZERO_CALL_SUPPORT(dstenvid);
 
         // Hint: This function is a wrapper around page_lookup() and
         //   page_insert() from kern/pmap.c.
@@ -260,25 +276,25 @@ sys_page_map(envid_t srcenvid, void *srcva,
         pte_t * pte;
         struct Page * page;
 
-	//  -E_BAD_ENV if srcenvid and/or dstenvid doesn't currently exist (?),
-	//      or the caller doesn't have permission to change one of them.
+    //  -E_BAD_ENV if srcenvid and/or dstenvid doesn't currently exist (?),
+    //      or the caller doesn't have permission to change one of them.
         if(envid2env(srcenvid, &src, 1) < 0 || envid2env(dstenvid, &dst, 1) < 0){
                 return -E_BAD_ENV;
         }
         
-	//  -E_INVAL if srcva >= UTOP or srcva is not page-aligned,
-	//      or dstva >= UTOP or dstva is not page-aligned.       
+    //  -E_INVAL if srcva >= UTOP or srcva is not page-aligned,
+    //      or dstva >= UTOP or dstva is not page-aligned.       
         if(((uintptr_t) srcva >= UTOP) || ((uintptr_t) srcva % PGSIZE) ||
-	   ((uintptr_t) dstva >= UTOP) || ((uintptr_t)dstva % PGSIZE)){
+       ((uintptr_t) dstva >= UTOP) || ((uintptr_t)dstva % PGSIZE)){
                 return -E_INVAL;
         }
 
-	//  -E_INVAL is srcva is not mapped in srcenvid's address space.
+    //  -E_INVAL is srcva is not mapped in srcenvid's address space.
         if((page = page_lookup(src->env_pgdir, srcva, &pte)) == NULL){
                 return -E_INVAL;
         }
 
-	//  -E_INVAL if perm is inappropriate (see sys_page_alloc).
+    //  -E_INVAL if perm is inappropriate (see sys_page_alloc).
         if((perm & PTE_U) == 0 || (perm & PTE_P) == 0){
                 return -E_INVAL;
         }
@@ -288,12 +304,12 @@ sys_page_map(envid_t srcenvid, void *srcva,
         }
 
         //  -E_INVAL if (perm & PTE_W), but srcva is read-only in srcenvid's
-	//      address space.
+    //      address space.
         if((perm & PTE_W) && ((*pte & PTE_W) == 0)){
                 return -E_INVAL;
         }
 
-	//  -E_NO_MEM if there's no memory to allocate any necessary page tables.
+    //  -E_NO_MEM if there's no memory to allocate any necessary page tables.
         if(page_insert(dst->env_pgdir, page, dstva, perm) < 0){
                 return -E_NO_MEM;
         }
@@ -311,19 +327,19 @@ sys_page_map(envid_t srcenvid, void *srcva,
 static int
 sys_page_unmap(envid_t envid, void *va)
 {
-	ZERO_CALL_SUPPORT(envid);
-	// Hint: This function is a wrapper around page_remove().
+    ZERO_CALL_SUPPORT(envid);
+    // Hint: This function is a wrapper around page_remove().
 
         // LAB 4: Your code here.
         struct Env *e;
       
-	//  -E_BAD_ENV if environment envid doesn't currently exist,
-	//      or the caller doesn't have permission to change envid. 
+    //  -E_BAD_ENV if environment envid doesn't currently exist,
+    //      or the caller doesn't have permission to change envid. 
         if(envid2env(envid, &e, 1) < 0){
                 return -E_BAD_ENV;
         }
 
-	//  -E_INVAL if va >= UTOP, or va is not page-aligned.
+    //  -E_INVAL if va >= UTOP, or va is not page-aligned.
         if(((uintptr_t) va >= UTOP) || ((uintptr_t) va % PGSIZE)){
                 return -E_INVAL;
         }

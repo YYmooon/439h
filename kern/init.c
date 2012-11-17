@@ -49,9 +49,9 @@ i386_init(void)
     // Lab 4 multitasking initialization functions
     pic_init();
 
-	// Acquire the big kernel lock before waking up APs
-	// Your code here:
-	lock_kernel();
+    // Acquire the big kernel lock before waking up APs
+    // Your code here:
+    lock_kernel();
 
     // Starting non-boot CPUs
     boot_aps();
@@ -61,12 +61,17 @@ i386_init(void)
     for (i = 0; i < NCPU; i++)
         ENV_CREATE(user_idle, ENV_TYPE_IDLE);
 
+    // Start fs.
+    ENV_CREATE(fs_fs, ENV_TYPE_FS);
+
 #if defined(TEST)
     // Don't touch -- used by grading script!
     ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
     // Touch all you want.
-    ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+    // ENV_CREATE(user_writemotd, ENV_TYPE_USER);
+    // ENV_CREATE(user_testfile, ENV_TYPE_USER);
+    // ENV_CREATE(user_icode, ENV_TYPE_USER);
 #endif // TEST*
 
     env_print_flst();
@@ -111,24 +116,24 @@ boot_aps(void)
 void
 mp_main(void)
 {
-	// We are in high EIP now, safe to switch to kern_pgdir 
-	lcr3(PADDR(kern_pgdir));
-	cprintf("SMP: CPU %d starting\n", cpunum());
+    // We are in high EIP now, safe to switch to kern_pgdir 
+    lcr3(PADDR(kern_pgdir));
+    cprintf("SMP: CPU %d starting\n", cpunum());
 
-	lapic_init();
-	env_init_percpu();
-	trap_init_percpu();
-	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+    lapic_init();
+    env_init_percpu();
+    trap_init_percpu();
+    xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
 
-	// Now that we have finished some basic setup, call sched_yield()
-	// to start running processes on this CPU.  But make sure that
-	// only one CPU can enter the scheduler at a time!
-	//
-	// Your code here:
+    // Now that we have finished some basic setup, call sched_yield()
+    // to start running processes on this CPU.  But make sure that
+    // only one CPU can enter the scheduler at a time!
+    //
+    // Your code here:
 
-	// Remove this after you finish Exercise 4
-	lock_kernel();
-	sched_yield();
+    // Remove this after you finish Exercise 4
+    lock_kernel();
+    sched_yield();
 }
 
 /*

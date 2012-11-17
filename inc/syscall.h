@@ -12,10 +12,11 @@ enum {
     SYS_page_unmap,             // 6
     SYS_exofork,                // 7
     SYS_env_set_status,         // 8
-    SYS_env_set_pgfault_upcall, // 9
-    SYS_yield,                  // 10
-    SYS_ipc_try_send,           // 11
-    SYS_ipc_recv,               // 12
+    SYS_env_set_trapframe,      // 9
+    SYS_env_set_pgfault_upcall, // 10
+    SYS_yield,                  // 11
+    SYS_ipc_try_send,           // 12
+    SYS_ipc_recv,               // 13
     NSYSCALLS
 };
 
