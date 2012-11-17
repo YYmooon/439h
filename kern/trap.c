@@ -408,49 +408,7 @@ page_fault_handler(struct Trapframe *tf)
     //   (the 'tf' variable points at 'curenv->env_tf').
 
     // LAB 4: Your code here.
-    if(!curenv->env_pgfault_upcall){
-                cprintf("[%08x] user fault va %08x ip %08x\n",
-                curenv->env_id, fault_va, tf->tf_eip);
-            print_trapframe(tf);
-            env_destroy(curenv);
-        }
-
-        // Check that exception stack is allocated
-        user_mem_assert(curenv, (void *) (UXSTACKTOP - 4), 4, 0);
-
-        uintptr_t exception_stack;
-        struct UTrapframe * utf;
-
-    // If recursive page fault
-        if(tf->tf_esp >= UXSTACKTOP - PGSIZE && tf->tf_esp <= UXSTACKTOP - 1){
-                exception_stack = tf->tf_esp - 4;
-        }
-        else {
-                exception_stack = UXSTACKTOP;
-        }
-
-        if((exception_stack - sizeof(struct UTrapframe)) < UXSTACKTOP - PGSIZE) {
-                cprintf("[%08x] user fault va %08x ip %08x\n",
-                curenv->env_id, fault_va, tf->tf_eip);
-            print_trapframe(tf);
-            env_destroy(curenv);
-        }
-
-        utf = (struct UTrapframe *) (exception_stack - sizeof(struct UTrapframe));
-        utf->utf_fault_va = fault_va;
-        utf->utf_err = tf->tf_err;
-        utf->utf_regs = tf->tf_regs;
-        utf->utf_eip = tf->tf_eip;
-        utf->utf_eflags = tf->tf_eflags;
-        utf->utf_esp = tf->tf_esp;
-        
-    tf->tf_esp = (uintptr_t) utf;
-        tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
-        
-    env_run(curenv);
-
-    /*if(curenv->env_pgfault_upcall) {
-
+    if(curenv->env_pgfault_upcall) {
         cprintf("[page_fault_handler] User fault with upcall...\n"); 
         print_trapframe(tf);
         cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
@@ -494,5 +452,4 @@ page_fault_handler(struct Trapframe *tf)
         print_trapframe(tf);
         env_destroy(curenv);
     }
-    */
 }
