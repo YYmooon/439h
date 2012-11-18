@@ -44,8 +44,10 @@ sched_yield(void)
             i = (i + 1) % NENV;
         }
     }
-
-    if (cpunum() == 0) {
+    
+    if(curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE) {
+        env_run(curenv);
+    } else if (cpunum() == 0) {
         cprintf("No more runnable environments!\n");
         while (1)
             monitor(NULL);
