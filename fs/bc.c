@@ -1,12 +1,15 @@
 #include "fs.h"
+#include "../debug.h"
 
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
 {
+    if(super) DEBUG("superblock %08x", super);
     if (blockno == 0 || (super && blockno >= super->s_nblocks))
-        panic("bad block number %08x in diskaddr", blockno);
-    return (char*) (DISKMAP + blockno * BLKSIZE);
+        panic("bad block number %08x in diskaddr, max is %08x", blockno, super->s_nblocks);
+    char* foo = (char*) (DISKMAP + blockno * BLKSIZE);
+    return foo;
 }
 
 // Is this virtual address mapped?
@@ -29,8 +32,9 @@ va_is_dirty(void *va)
 static void
 bc_pgfault(struct UTrapframe *utf)
 {
-    void *addr = (void *) utf->utf_fault_va;
-    uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
+    void *addr       = (void *) ROUNDDOWN(utf->utf_fault_va, PGSIZE);
+    uint32_t sectno  = ((uint32_t)addr - DISKMAP) / SECTSIZE;
+    uint32_t blockno = (sectno / BLKSECTS);
     int r;
 
     // Check that the fault was within the block cache region
@@ -49,55 +53,43 @@ bc_pgfault(struct UTrapframe *utf)
     //
     // LAB 5: Your code here
     //
-    void* pg_aligned_va = (void*)ROUNDDOWN(addr, PGSIZE);
-    unsigned nblocks    = (pg_aligned_va < addr) ? 2 : 1;
-    int bar;
-    
-    if(va_is_mapped(pg_aligned_va)) {
+ 
+    if(va_is_mapped(addr)) {
         //// the file is mapped
-        cprintf("[bc_pgfault] Fault on mapped page..\n");
+        DEBUG("Fault on mapped page..");
         if(utf->utf_err == T_PGFLT) {
             // someone tried to write to the memory range...
             // we don't really care if the page was dirty or not, it's dirty now.
-            cprintf("[bc_pgfault] Attempting to remap with write permissions..\n");
-            for(r=0; r<nblocks; r++){
-                cprintf("[bc_pgfault] Marking va %08x dirty..\n", pg_aligned_va);
-                bar = sys_page_map(0, pg_aligned_va, 0, pg_aligned_va, PTE_P | PTE_U | PTE_W);
-                if(bar < 0)
-                    panic("[bc_pgfault] could not remap page.. error code: %e\n", bar);
-                cprintf("[bc_pgfault] ... ok\n");
-                pg_aligned_va += PGSIZE;
-            }
-            cprintf("[bc_pgfault] Remapped page %x dirty and writable\n", blockno);
+            sys_page_map(0, addr, 
+                         0, addr, 
+                         (PTE_P | PTE_U | PTE_W));
+
+            DEBUG("Remapped page %x writable", blockno);
         } else {
             // how the shit does this happen...
             // don't do anything interesting
-            cprintf("[bc_pgfault] Caught an error of ID %x, something is wrong\n", utf->utf_err);
+            panic("[bc_pgfault] Caught an error of ID %x, something is wrong\n", 
+                  utf->utf_err);
         }
-
     } else {
         //// the file is unmapped
         // Load the sector in from memory
         // Node that this is bloody stupid as it only allows us access to the first
         // 3GB of space
         
-        cprintf("[bc_pgfault] got request for block %x, mapping %d pgs\n", blockno, nblocks);
+        DEBUG("Loading %08x sectors starting at sector %08x (block %08x)", 
+              BLKSECTS, sectno, blockno);
+    
+        sys_page_alloc(0, addr, PTE_P | PTE_U | PTE_W);
 
-        for(r=0; r<nblocks; r++)
-            sys_page_alloc(0, pg_aligned_va+(r*PGSIZE), PTE_P | PTE_U | PTE_W);
+        if(ide_read(sectno, addr, BLKSECTS) < 0)
+          panic("failed to read data from disk..");
 
-        cprintf("[bc_pgfault] pages mapped, reading data from block %x\n", blockno);
-
-        ide_read(blockno, addr, BLKSECTS);  // the sector size is the block size but w/e
+        sys_page_map(0, addr, 
+                     0, addr, 
+                     (PTE_P | PTE_U));
         
-        cprintf("[bc_pgfault] block loaded, remapping pages\n", blockno);
-
-        for(r=0; r<nblocks; r++)
-            sys_page_map(0, pg_aligned_va+(r*PGSIZE), 0, pg_aligned_va+(r*BLKSIZE), PTE_P | PTE_U);
-        
-        cprintf("[bc_pgfault] Loaded block %x read only\n", blockno);
-        for(r=0; r<nblocks; r++)
-            assert(va_is_mapped(pg_aligned_va+(r*PGSIZE)));
+        DEBUG("Loaded block %x read only", blockno);
     }
 
     // Check that the block we read was allocated. (exercise for
@@ -124,20 +116,24 @@ bc_pgfault(struct UTrapframe *utf)
 void
 flush_block(void *addr)
 {
-    uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
+    addr             = (void *) ROUNDDOWN(addr, PGSIZE);
+    uint32_t sectno  = ((uint32_t)addr - DISKMAP) / SECTSIZE;
+    uint32_t blockno = (sectno / BLKSECTS);
 
     if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
         panic("flush_block of bad va %08x", addr);
 
     // LAB 5: Your code here.
     if(va_is_dirty(addr) && va_is_mapped(addr)) {
-        ide_write(blockno, addr, BLKSECTS);
-        if(sys_page_map(0, addr, 0, addr, PTE_P | PTE_U) < 0)
-            panic("[flush_block] Failed to remap flushed block\n");
-        cprintf("[flush_block] wrote block %08x, now mapped r/o\n", blockno);
+        ide_write(sectno, addr, BLKSECTS);
+        sys_page_map(0, addr, 
+                     0, addr,
+                     (PTE_P | PTE_U));
+        DEBUG("Wrote block %08x, now mapped r/o", blockno);
     } else {
-        panic("[flush_block] Tried to flush block in invalid state\n            dirty: %x\n            mapped: %x\n",
-                va_is_dirty(addr), va_is_mapped(addr));
+        panic("[flush_block] Tried to flush block in invalid state\n%s%x\n%s%x\n",
+              "              dirty: ", va_is_dirty(addr),
+              "             mapped: ", va_is_mapped(addr));
     }
 }
 
@@ -146,33 +142,41 @@ flush_block(void *addr)
 static void
 check_bc(void)
 {
-    cprintf("[check_bc] starting..\n");
+    DEBUG("Starting..");
     struct Super backup;
 
     // back up super block
-    memmove(&backup, diskaddr(1), sizeof backup);
-    cprintf("[check_bc] Wrote superblock to disk ram block..\n");
+    memmove(&backup, diskaddr(1), sizeof(backup));
+    DEBUG("Wrote superblock to disk ram block..");
+    DEBUG("in memory magic number: %08x", ((struct Super*)diskaddr(1))->s_magic);
 
     // smash it
     strcpy(diskaddr(1), "OOPS!\n");
     flush_block(diskaddr(1));
     assert(va_is_mapped(diskaddr(1)));
     assert(!va_is_dirty(diskaddr(1)));
-    cprintf("[check_bc] Smashed disk superblock..\n");
+    DEBUG("Smashed disk superblock..");
 
     // clear it out
     sys_page_unmap(0, diskaddr(1));
     assert(!va_is_mapped(diskaddr(1)));
-    cprintf("[check_bc] Unmapped superblock va..\n");
+    DEBUG("Unmapped superblock va..");
 
     // read it back in
     assert(strcmp(diskaddr(1), "OOPS!\n") == 0);
-    cprintf("[check_bc] re-read superblock va..\n");
+    DEBUG("re-read superblock va..");
 
     // fix it
-    memmove(diskaddr(1), &backup, sizeof backup);
+    memmove(diskaddr(1), &backup, sizeof(backup));
+    assert(memcmp(diskaddr(1), &backup, sizeof(backup)) == 0);
+    
     flush_block(diskaddr(1));
-    cprintf("[check_bc] Fixed superblock..\n");
+
+    assert(memcmp(diskaddr(1), &backup, sizeof(backup)) == 0);
+    DEBUG("backup magic number   : %08x", backup.s_magic);
+    DEBUG("in memory magic number: %08x", ((struct Super*)diskaddr(1))->s_magic);
+    DEBUG("expected magic value  : %08x", FS_MAGIC);
+    DEBUG("Fixed superblock..");
 
     cprintf("block cache is good\n");
 }
@@ -180,7 +184,7 @@ check_bc(void)
 void
 bc_init(void)
 {
-    cprintf("[bc_init] Initializing the block count\n");
+    DEBUG("Initializing the block count");
     set_pgfault_handler(bc_pgfault);
     check_bc();
 }
