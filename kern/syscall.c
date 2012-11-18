@@ -12,6 +12,8 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
+#include <debug.h>
+
 #define ZERO_CALL_SUPPORT(x)                    \
 do {                                            \
     if(x == 0) {                                \
@@ -61,12 +63,13 @@ sys_env_destroy(envid_t envid)
     int r;
     struct Env *e;
 
-    if ((r = envid2env(envid, &e, 1)) < 0)
+    if ((r = envid2env(envid, &e, 1)) < 0) {
         return r;
-    if (e == curenv)
-        cprintf("[%08x] exiting gracefully\n", curenv->env_id);
-    else
-        cprintf("[%08x] destroying %08x\n", curenv->env_id, e->env_id);
+    } else if (e == curenv) {
+        DEBUG("exiting gracefully");
+    } else {
+        DEBUG("destroying %08x", e->env_id);
+    }
     env_destroy(e);
     return 0;
 }
@@ -75,7 +78,6 @@ sys_env_destroy(envid_t envid)
 static void
 sys_yield(void)
 {
-    if(cpunum() >= NCPU) cprintf("[%08x] yielding\n", curenv->env_id);
     sched_yield();
 }
 
@@ -97,16 +99,15 @@ sys_exofork(void)
     unsigned res = env_alloc(&e, curenv->env_id);
     if(res < 0) {
         if(res == -E_NO_FREE_ENV) {
-            cprintf("[sys_exofork] no free envs!\n");
+            DEBUG("no free envs!");
         } if(res == -E_NO_MEM) {
-            cprintf("[sys_exofork] no free mem!\n");
+            DEBUG("no free mem!");
         } return res; // -E_NO_FREE_ENV, -E_NO_MEM
     }
     e->env_status = ENV_NOT_RUNNABLE;
     e->env_type   = ENV_TYPE_USER;
     e->env_tf = curenv->env_tf;                 // copy register state
-    cprintf("[sys_exofork] child epi %08x\n",
-            e->env_tf.tf_eip);
+    DEBUG("child epi %08x", e->env_tf.tf_eip);
     e->env_tf.tf_regs.reg_eax = 0;              // set child return code
     return e->env_id;                           // return the child's env. id
 }
@@ -136,7 +137,7 @@ sys_env_set_status(envid_t envid, int status)
     if(status == ENV_FREE) {
         // a user should not be able to mark an environment as free,
         // that should be done by syscalling sys_env_destroy.
-        cprintf("[sys_env_set_status] ERROR: cannot free an env this way\n");
+        DEBUG("ERROR: cannot free an env this way");
         return -E_INVAL;
     }
 
@@ -147,7 +148,7 @@ sys_env_set_status(envid_t envid, int status)
             // status flags to the following values:
             //  - ENV_DYING     a user shouldn't be able to kill a kernel env
             //  - ENV_RUINNABLE idle envs can only be entered by the kernel
-            cprintf("[sys_env_set_status] ERROR: cannot set status of an idle env\n");
+            DEBUG("ERROR: cannot set status of an idle env");
             return -E_INVAL;
         }
     } 
@@ -162,11 +163,11 @@ sys_env_set_status(envid_t envid, int status)
         } else {
             // don't let envs enter states which aren't valid states
             // according to the env states enum
-            cprintf("[sys_env_set_status] ERROR: unknown status %08x\n", status);
+            DEBUG("ERROR: unknown status %08x", status);
             return -E_INVAL;
         }
     } 
-    cprintf("[sys_env_set_status] ERROR: fell throug!h\n");
+    DEBUG("ERROR: fell through!");
     return -E_INVAL;
 }
 
@@ -229,8 +230,8 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
     int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check) {
-        cprintf("[sys_page_alloc] ERROR: the permission bits are off\n");
-        cprintf("[sys_page_alloc] argument: %08x delta: %08x legal perms: %08x\n",
+        DEBUG("ERROR: the permission bits are off");
+        DEBUG("argument: %08x delta: %08x legal perms: %08x",
                 perm, perm_check, PTE_AVAIL | PTE_W | PTE_P | PTE_U);
         // the permission bits are wrong..
         return -E_INVAL;
@@ -238,13 +239,13 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
     if(((unsigned) va % PGSIZE) != 0) {
         // the VA is not page-aligned
-        cprintf("[sys_page_alloc] ERROR: the VA is not page alligned\n");
+        DEBUG("ERROR: the VA is not page alligned");
         return -E_INVAL;
     }
 
     if((unsigned) va >= UTOP) {
         // the VA is above UTOP
-        cprintf("[sys_page_alloc] ERROR: the VA is out of user space\n");
+        DEBUG("ERROR: the VA is out of user space");
         return -E_INVAL;
     }
 
@@ -253,16 +254,15 @@ sys_page_alloc(envid_t envid, void *va, int perm)
         int i = page_insert(target->env_pgdir, p, va, PTE_P | PTE_U | perm);
         if(i == 0) {
             // all is well
-            cprintf("[sys_page_alloc] insert returned %d, all well\n", i);
             return 0;
         } else {
             page_free(p);
-            cprintf("[sys_page_alloc] ERROR: page_insert returned %d\n", i);
+            DEBUG("ERROR: page_insert returned %d", i);
             return i;
         }
     } else {
         // no page was allocated, die
-        cprintf("[sys_page_alloc] ERROR: no free memory\n");
+        DEBUG("ERROR: no free memory");
         return -E_NO_MEM;
     }
 }
@@ -310,11 +310,12 @@ sys_page_map(envid_t srcenvid, void *srcva,
         return -E_INVAL;
     }
 
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & 
+                     ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check) {
         // the permission bits are wrong..
         // will only catch perm bits that should never be set
-        cprintf("[sys_page_map] Permission error\n");
+        DEBUG("Permission error");
         return -E_INVAL;
     }
 
