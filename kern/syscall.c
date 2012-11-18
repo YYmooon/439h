@@ -171,6 +171,22 @@ sys_env_set_status(envid_t envid, int status)
     return -E_INVAL;
 }
 
+// Set envid's trap frame to 'tf'.
+// tf is modified to make sure that user environments always run at code
+// protection level 3 (CPL 3) with interrupts enabled.
+//
+// Returns 0 on success, < 0 on error.  Errors are:
+//  -E_BAD_ENV if environment envid doesn't currently exist,
+//      or the caller doesn't have permission to change envid.
+static int
+sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+    // LAB 5: Your code here.
+    // Remember to check whether the user has supplied us with a good
+    // address!
+    panic("sys_env_set_trapframe not implemented");
+}
+
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
 // Env's 'env_pgfault_upcall' field.  When 'envid' causes a page fault, the
 // kernel will push a fault record onto the exception stack, then branch to
@@ -480,47 +496,66 @@ sys_ipc_recv(void *dstva)
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
 {
-//    cprintf("[%08x] dispatching syscall %d\n", curenv->env_id, syscallno);
     // Call the function corresponding to the 'syscallno' parameter.
     // Return any appropriate return value.
     // LAB 3: Your code here.
-    if(syscallno == SYS_cputs) {
-        sys_cputs((const char *) a1, (size_t) a2);
-        return 0;
-    }
-    else if(syscallno == SYS_cgetc) {
-        return sys_cgetc();
-    }
-    else if(syscallno == SYS_getenvid) {
-        return sys_getenvid();
-    }
-    else if(syscallno == SYS_env_destroy) {
-        return sys_env_destroy((envid_t) a1);
-    }
-    else if(syscallno == SYS_yield) {
-        sys_yield();
-        return 0; // unreachable but keep the compiler happy
-    }
-    else if(syscallno == SYS_page_alloc) {
-        return sys_page_alloc((envid_t) a1, (void*) a2, (int) a3);
-    }
-    else if(syscallno == SYS_exofork) {
-        return sys_exofork();
-    }
-    else if(syscallno == SYS_page_map) {
-        return sys_page_map((envid_t) a1, (void*) a2, (envid_t) a3, (void*) a4, (int) a5);
-    }
-    else if(syscallno == SYS_page_unmap) {
-        return sys_page_unmap((envid_t) a1, (void*) a2);
-    }
-    else if(syscallno == SYS_env_set_status) {
-        return sys_env_set_status((envid_t) a1, (int) a2);
-    }
-    else if(syscallno == SYS_env_set_pgfault_upcall) {
-        return sys_env_set_pgfault_upcall((envid_t) a1, (void*) a2);
-    }
-    else {
-        return -E_INVAL;
+    switch(syscallno) {
+        case SYS_cputs:
+            sys_cputs((const char *) a1, (size_t) a2);
+            return 0;
+
+        case SYS_cgetc:
+            return sys_cgetc();
+
+        case SYS_getenvid:
+            return sys_getenvid();
+
+        case SYS_env_destroy:
+            return sys_env_destroy((envid_t) a1);
+
+        case SYS_page_alloc:
+            return sys_page_alloc((envid_t) a1, (void*) a2, (int) a3);
+
+        case SYS_page_map:
+            return sys_page_map((envid_t)   a1, 
+                                (void*)     a2, 
+                                (envid_t)   a3, 
+                                (void*)     a4, 
+                                (int)       a5);
+        case SYS_page_unmap:
+            return sys_page_unmap((envid_t) a1, 
+                                  (void*)   a2);
+
+        case SYS_exofork:
+            return sys_exofork();
+
+        case SYS_env_set_status:
+            return sys_env_set_status((envid_t) a1, 
+                                      (int)     a2);
+
+        case SYS_env_set_trapframe:
+            return sys_env_set_trapframe((envid_t)  a1,
+                                         (struct Trapframe*) a2);
+
+        case SYS_env_set_pgfault_upcall:
+            return sys_env_set_pgfault_upcall((envid_t) a1, 
+                                              (void*)   a2);
+
+        case SYS_yield:
+            sys_yield();
+            return 0; // unreachable but keep the compiler happy
+
+        case SYS_ipc_try_send:
+            return sys_ipc_try_send((envid_t)   a1,
+                                    (uint32_t)  a2, 
+                                    (void*)     a3, 
+                                    (unsigned)  a4);
+            
+        case SYS_ipc_recv:
+            return sys_ipc_recv((void*) a1);
+
+        default:
+            return -E_INVAL;
     }
 }
 
