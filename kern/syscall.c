@@ -399,8 +399,51 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
     ZERO_CALL_SUPPORT(envid);
+
     // LAB 4: Your code here.
-    panic("sys_ipc_try_send not implemented");
+    struct Env * env;
+    struct Page * page;
+    pte_t * pte;
+
+    if(envid2env(envid, &env, 0) < 0)
+        return -E_BAD_ENV;
+    if(env->env_ipc_recving == 0)
+        return -E_IPC_NOT_RECV;
+    if((uintptr_t) srcva < UTOP){
+        if((uintptr_t) srcva % PGSIZE)
+            return -E_INVAL;
+        if(!(perm & PTE_P) || !(perm & PTE_U))
+            return -E_INVAL;
+        if((perm & 0xfff) & ~(PTE_AVAIL | PTE_P | PTE_W | PTE_U))
+            return -E_INVAL;
+    }
+
+    env->env_ipc_recving = 0;
+    env->env_ipc_from = curenv->env_id;
+    env->env_ipc_value = value;
+
+    if(((uintptr_t) (env->env_ipc_dstva) < UTOP) && ((uintptr_t) srcva < UTOP)){
+        if((page = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL)
+            return -E_INVAL;
+
+        if((perm & PTE_W) && !(*pte & PTE_W))
+            panic("Are you sure you want to mapping a read-only page to a status that can be written?");
+
+        int result = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm);
+        if(result < 0)
+            return result;
+
+        env->env_status = ENV_RUNNABLE;
+        env->env_ipc_perm = perm;
+        return 1;
+    }
+    else {
+        env->env_ipc_perm = 0;
+    }
+
+    env->env_status = ENV_RUNNABLE;
+
+    return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -418,7 +461,17 @@ static int
 sys_ipc_recv(void *dstva)
 {
     // LAB 4: Your code here.
-    panic("sys_ipc_recv not implemented");
+    if((uintptr_t) dstva < UTOP && ((uintptr_t) dstva % PGSIZE)) {
+        return -E_INVAL;
+    }
+
+    curenv->env_ipc_value = 0;
+    curenv->env_ipc_from = 0;
+    curenv->env_ipc_perm = 0;
+    curenv->env_ipc_recving = 1;
+    curenv->env_ipc_dstva = dstva;
+    curenv->env_status = ENV_NOT_RUNNABLE;
+
     return 0;
 }
 
