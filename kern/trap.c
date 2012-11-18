@@ -436,7 +436,7 @@ page_fault_handler(struct Trapframe *tf)
         tf->tf_esp = (unsigned) raw_addr;
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
 
-        KDEBUG("entering user recovery environment...\n\n\n"); 
+        KDEBUG("entering user recovery environment..."); 
 
         env_run(curenv);
 
