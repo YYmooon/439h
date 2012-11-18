@@ -15,6 +15,8 @@
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
 
+#include <debug.h>
+
 static struct Taskstate ts;
 static int faultcount;
 
@@ -248,7 +250,7 @@ trap_dispatch(struct Trapframe *tf)
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
-        cprintf("[trap_dispatch] Engaging page_fault_handler\n");
+        KDEBUG("Engaging page_fault_handler");
         page_fault_handler(tf);
     } else if(tf->tf_trapno == T_BRKPT){
         monitor(tf);
@@ -266,7 +268,7 @@ trap_dispatch(struct Trapframe *tf)
     // The hardware sometimes raises these because of noise on the
     // IRQ line or other reasons. We don't care.
     else if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-        cprintf("Spurious interrupt on irq 7\n");
+        KDEBUG("Spurious interrupt on irq 7");
         print_trapframe(tf);
         return;
     }
@@ -309,7 +311,7 @@ trap(struct Trapframe *tf)
     assert(!(read_eflags() & FL_IF));
 
     faultcount++;
-    if(faultcount > 25)
+    if(faultcount > 1000)
         panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
@@ -404,15 +406,15 @@ page_fault_handler(struct Trapframe *tf)
 
     // LAB 4: Your code here.
     else if(curenv->env_pgfault_upcall) {
-        cprintf("[page_fault_handler] User fault with upcall...\n"); 
-        print_trapframe(tf);
-        cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
+        KDEBUG("User fault with upcall..."); 
+        //print_trapframe(tf);
+        KDEBUG("Fault VA was %08x", fault_va);
 
         struct UTrapframe *utf;
         char*  raw_addr;
 
         if((UXSTACKTOP >= tf->tf_esp) && (UXSTACKTOP-PGSIZE <  tf->tf_esp)) {
-            cprintf("[page_fault_handler] recursive fault, adding an exception stack frame\n");
+            KDEBUG("recursive fault, adding an exception stack frame");
             raw_addr = (char*) tf->tf_esp - 4;
         } else {
             raw_addr = (char*) UXSTACKTOP - 1;
@@ -434,15 +436,16 @@ page_fault_handler(struct Trapframe *tf)
         tf->tf_esp = (unsigned) raw_addr;
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
 
-        cprintf("[page_fault_handler] entering user recovery environment...\n"); 
+        KDEBUG("entering user recovery environment...\n\n\n"); 
 
         env_run(curenv);
 
     } else {
-        cprintf("[page_fault_handler] User fault with __NO__ upcall...\n"); 
+        KDEBUG("User fault with __NO__ upcall..."); 
         // Destroy the environment that caused the fault.
-        cprintf("[%08x] user fault va %08x ip %08x\n",
-            curenv->env_id, fault_va, tf->tf_eip);
+        KDEBUG("User fault va %08x ip %08x\n",
+               curenv->env_id, fault_va, tf->tf_eip);
+
         print_trapframe(tf);
         env_destroy(curenv);
     }
