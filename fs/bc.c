@@ -130,10 +130,6 @@ flush_block(void *addr)
                      0, addr,
                      (PTE_P | PTE_U));
         DEBUG("Wrote block %08x, now mapped r/o", blockno);
-    } else {
-        panic("[flush_block] Tried to flush block in invalid state\n%s%x\n%s%x\n",
-              "              dirty: ", va_is_dirty(addr),
-              "             mapped: ", va_is_mapped(addr));
     }
 }
 
