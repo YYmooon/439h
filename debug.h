@@ -12,7 +12,7 @@ do {                                        \
 #define KDEBUG(...) \
 do {                                        \
     cprintf("[%08x %-16s:%3d in %-24s] ",   \
-            curenv->env_id,                 \
+            (curenv ? curenv->env_id:0),    \
             __FILE__,                       \
             __LINE__,                       \
             __func__);                      \
