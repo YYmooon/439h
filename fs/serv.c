@@ -30,10 +30,10 @@
 //    file IDs to struct OpenFile.
 
 struct OpenFile {
-    uint32_t o_fileid;  // file id
+    uint32_t o_fileid;      // file id
     struct File *o_file;    // mapped descriptor for open file
-    int o_mode;     // open mode
-    struct Fd *o_fd;    // Fd page
+    int o_mode;             // open mode
+    struct Fd *o_fd;        // Fd page
 };
 
 // Max number of open files in the file system at once
@@ -215,7 +215,17 @@ serve_read(envid_t envid, union Fsipc *ipc)
     // Hint: Use file_read.
     // Hint: The seek position is stored in the struct Fd.
     // LAB 5: Your code here
-    panic("serve_read not implemented");
+    
+    struct OpenFile *o;
+    int r;
+
+    // get the open file descriptor, same as in serve_set_size
+    if((r = openfile_lookup(envid, ipc->read.req_fileid, &o)) < 0)
+        return r;
+
+    // if you requested more bytes than one page, tough shit you get
+    // one page of bytes. If you wanted less than a page, congrats you get more!
+    return file_read(o->o_file, &ret->ret_buf, req->req_n, o->o_fd->fd_offset);
 }
 
 // Write req->req_n bytes from req->req_buf to req_fileid, starting at
