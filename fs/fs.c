@@ -211,7 +211,7 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
     // LAB 5: Your code here.
     uint32_t* block;
-    int v = file_block_walk(f, filebno, &block, 1);
+    int v = file_block_walk(f, filebno, &block, (filebno > 0));
     switch(v) {
         case -E_NO_DISK:
             return -E_NO_DISK;
