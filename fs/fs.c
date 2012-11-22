@@ -62,15 +62,22 @@ alloc_block(void)
 
 	// LAB 5: Your code here.
 
-  unsigned blockno = 0;
-  for(blockno = 0; blockno <= super->s_nblocks; blockno++) {
-    if(!bitmap[blockno/32] | 1<<(blockno%32)) {
-	    bitmap[blockno/32] &= ~(1<<(blockno%32));
+unsigned blockno = 0;
+  unsigned bit, mask, entry;
+
+  for(blockno = 0; blockno < super->s_nblocks; blockno++) {
+    bit = 1<<(blockno%32);
+    mask = ~bit;
+    entry = blockno/32;
+
+    if(bitmap[entry] & bit) {
+      bitmap[entry] = bitmap[entry] & mask;
+      assert(!(bitmap[entry] & bit));
       return blockno;
     }
   }
 
-	return -E_NO_DISK;
+  return -E_NO_DISK;
 }
 
 // Validate the file system bitmap.
