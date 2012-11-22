@@ -1,6 +1,6 @@
 #define DEBUG(...) \
 do {                                        \
-    sys_env_escape_preempt(1);              \
+    sys_env_disable_preempt();              \
     cprintf("[%08x %-16s:%3d in %-24s] ",   \
             sys_getenvid(),                 \
             __FILE__,                       \
@@ -8,7 +8,7 @@ do {                                        \
             __func__);                      \
     cprintf(__VA_ARGS__);                   \
     cprintf("\n");                          \
-    sys_env_escape_preempt(0);              \
+    sys_env_enable_preempt();               \
 } while(0);
 
 #define KDEBUG(...) \
