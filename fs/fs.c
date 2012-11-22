@@ -62,7 +62,7 @@ alloc_block(void)
 
 	// LAB 5: Your code here.
 
-unsigned blockno = 0;
+  unsigned blockno = 0;
   unsigned bit, mask, entry;
 
   for(blockno = 0; blockno < super->s_nblocks; blockno++) {
@@ -77,7 +77,7 @@ unsigned blockno = 0;
     }
   }
 
-  return -E_NO_DISK;
+	return -E_NO_DISK;
 }
 
 // Validate the file system bitmap.
@@ -127,6 +127,30 @@ fs_init(void)
     check_bitmap();
 }
 
+
+// utility function for working with block allocation
+// which ensures that there is a valid mapped block at
+// the target of the pointer var.
+//
+// Returns 0 if all is well and a block is present
+// Returns -E_NO_DISK if no block could be allocated 
+//    or if there was a failure in alloc_block
+int
+ensure_block(unsigned *var) {
+    if(!*var || block_is_free(*var)) {
+        int v = alloc_block();
+        if(v < 0) {
+            return v;
+        } else {
+            *var = v;
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+}
+
+
 // Find the disk block number slot for the 'filebno'th block in file 'f'.
 // Set '*ppdiskbno' to point to that slot.
 // The slot will be one of the f->f_direct[] entries,
@@ -147,7 +171,30 @@ static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
     // LAB 5: Your code here.
-    panic("file_block_walk not implemented");
+
+    if(filebno >= NDIRECT + NINDIRECT) return -E_INVAL;
+
+    int v = 0;
+    if(filebno < NDIRECT) {
+        *ppdiskbno = &f->f_direct[filebno];
+        return 0;
+    } else {
+        if(block_is_free(f->f_indirect) && alloc) {
+            v = ensure_block(&f->f_indirect);
+            if(v < 0) return -E_NO_DISK;
+        } else if(block_is_free(f->f_indirect) && !alloc) {
+            return -E_NOT_FOUND;
+        }
+
+        // If execution reaches this point, then we know that the indirect
+        // page is mapped. Now we just need to ensure a block in the indirect
+        // chunk.
+        uint32_t *ind_arr = (uint32_t*) diskaddr(f->f_indirect);
+        filebno -= NDIRECT;
+
+        *ppdiskbno = &ind_arr[filebno];
+        return 0;
+    }
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -163,7 +210,21 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
     // LAB 5: Your code here.
-    panic("file_get_block not implemented");
+    uint32_t* block;
+    int v = file_block_walk(f, filebno, &block, 0);
+    if(v == -E_NOT_FOUND) 
+        v = file_block_walk(f, filebno, &block, 1);
+
+    if(v < 0) return v;
+    v = ensure_block(block); 
+    if(v < 0) return -E_NO_DISK;
+    *blk = (char*) diskaddr((uint32_t) *block);  
+          // *block at this point is the block ID of a used block
+          // diskaddr will return a void* being the memory address
+          // corresponding to that block, cast it to a char* and 
+          // write it where it needs to be.
+
+    return 0;
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
