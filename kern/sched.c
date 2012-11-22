@@ -37,7 +37,9 @@ sched_yield(void)
     i = (c + 1) % NENV;
 
     if(curenv && curenv->env_escape_preempt > 0) {
-        curenv->env_escape_preempt--;
+        if(curenv->env_escape_preempt != 0xBAD1DEA)
+            curenv->env_escape_preempt--;
+
         env_run(curenv);
     }
 

@@ -122,3 +122,15 @@ sys_env_escape_preempt(uint32_t times)
 {
     return syscall(SYS_env_escape_preempt, 0, times, 0, 0, 0, 0);
 }
+
+int
+sys_env_disable_preempt()
+{
+    return syscall(SYS_env_escape_preempt, 0, 0xBAD1D1DEA, 0, 0, 0, 0);
+}
+
+int
+sys_env_enable_preempt(uint32_t times)
+{
+    return syscall(SYS_env_escape_preempt, 0, 0, 0, 0, 0, 0);
+}
