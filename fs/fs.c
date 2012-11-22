@@ -60,8 +60,23 @@ alloc_block(void)
     // contains the in-use bits for BLKBITSIZE blocks.  There are
     // super->s_nblocks blocks in the disk altogether.
 
-    // LAB 5: Your code here.
-    panic("alloc_block not implemented");
+	  // LAB 5: Your code here.
+
+    unsigned blockno = 0;
+    unsigned bit, mask, entry;
+
+    for(blockno = 0; blockno < super->s_nblocks; blockno++) {
+      bit = 1<<(blockno%32);
+      mask = ~bit;
+      entry = blockno/32;
+
+      if(bitmap[entry] & bit) {
+        bitmap[entry] = bitmap[entry] & mask;
+        assert(!(bitmap[entry] & bit));
+        return blockno;
+      }
+    }
+
     return -E_NO_DISK;
 }
 
