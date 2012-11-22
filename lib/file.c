@@ -105,7 +105,6 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
     fsipcbuf.read.req_n      = n; 
 
     int r = fsipc(FSREQ_READ, NULL);
-    if(r < 0) return r;
 
     memcpy(buf, &fsipcbuf.readRet.ret_buf, n);
     return r;
@@ -124,7 +123,14 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
     // remember that write is always allowed to write *fewer*
     // bytes than requested.
     // LAB 5: Your code here
-    panic("devfile_write not implemented");
+    n = (n < PGSIZE) ? n : PGSIZE;
+
+    fsipcbuf.write.req_fileid = fd->fd_file.id;
+    fsipcbuf.write.req_n      = n; 
+
+    memcpy(&fsipcbuf.write.req_buf, buf, n);
+
+    return fsipc(FSREQ_WRITE, NULL);
 }
 
 static int

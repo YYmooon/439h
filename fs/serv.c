@@ -5,11 +5,12 @@
 
 #include <inc/x86.h>
 #include <inc/string.h>
+#include <debug.h>
 
 #include "fs.h"
 
 
-#define debug 0
+#define debug 1
 
 // The file system server maintains three structures
 // for each open file.
@@ -235,11 +236,26 @@ serve_read(envid_t envid, union Fsipc *ipc)
 int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
-    if (debug)
-        cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+    DEBUG("client: %08x file: %08x n: %08x", 
+          envid, req->req_fileid, req->req_n);
 
     // LAB 5: Your code here.
-    panic("serve_write not implemented");
+    struct OpenFile *o;
+    int r;
+
+    // get the open file descriptor, same as in serve_set_size
+    if((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+        return r;
+
+    unsigned n = req->req_n;
+    n = (n < PGSIZE) ? n : PGSIZE;
+
+    r =  file_write(o->o_file, &req->req_buf, n, o->o_fd->fd_offset);
+    if(r < 0) return r;
+     
+    o->o_fd->fd_offset += r;
+
+    return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -252,8 +268,7 @@ serve_stat(envid_t envid, union Fsipc *ipc)
     struct OpenFile *o;
     int r;
 
-    if (debug)
-        cprintf("serve_stat %08x %08x\n", envid, req->req_fileid);
+    DEBUG("serve_stat %08x", req->req_fileid);
 
     if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
         return r;
@@ -365,6 +380,7 @@ umain(int argc, char **argv)
     static_assert(sizeof(struct File) == 256);
     binaryname = "fs";
     cprintf("FS is running\n");
+    cprintf("FS is envid %08x\n", sys_getenvid());
 
     // Check that we are able to do I/O
     outw(0x8A00, 0x8A00);
