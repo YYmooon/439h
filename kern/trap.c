@@ -309,7 +309,7 @@ trap(struct Trapframe *tf)
     assert(!(read_eflags() & FL_IF));
 
     faultcount++;
-    if(faultcount > 25)
+    if(faultcount > 100)
         panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
