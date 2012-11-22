@@ -27,15 +27,17 @@ struct Command {
 };
 
 static struct Command commands[] = {
-    { "help", "Display this list of commands", mon_help },
-    { "kerninfo", "Display information about the kernel", mon_kerninfo },
-    { "showmappings", "Display page directory info. Args: begin, end", mon_showmappings },
-    { "resetperms", "Reset specified permission bits in VA range. Args: begin, end, perm", mon_resetperms },
-    { "clearperms", "Clear specified permission bits in VA range. Args: begin, end, perm", mon_clearperms },
-    { "setperms", "Set specified permission bits in VA range. Args: begin, end, perm", mon_setperms },
-    { "dumpvmemory", "Dump memory in VA range. Args: begin, end", mon_dumpvmemory },
-    { "dumppmemory", "Dump memory in PA range. Args: begin, end", mon_dumppmemory },
-    { "si", "Step broken user program by one instruction", mon_si}
+    { "help",         "Display this list of commands",                                        mon_help          },
+    { "kerninfo",     "Display information about the kernel",                                 mon_kerninfo      },
+    { "showmappings", "Display page directory info. Args: begin, end",                        mon_showmappings  },
+    { "resetperms",   "Reset specified permission bits in VA range. Args: begin, end, perm",  mon_resetperms    },
+    { "clearperms",   "Clear specified permission bits in VA range. Args: begin, end, perm",  mon_clearperms    },
+    { "setperms",     "Set specified permission bits in VA range. Args: begin, end, perm",    mon_setperms      },
+    { "dumpvmemory",  "Dump memory in VA range. Args: begin, end",                            mon_dumpvmemory   },
+    { "dumppmemory",  "Dump memory in PA range. Args: begin, end",                            mon_dumppmemory   },
+    { "si",           "Step broken user program by one instruction",                          mon_si            },
+    { "pc",           "Looks up the trap'd PC in the symbol table",                           mon_pc            },
+    { "bt",           "Prints the backtrace associated with the trap frame",                  mon_backtrace     }
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 #define EIP (*(int*)(ebp+0x1))
@@ -346,9 +348,6 @@ mon_showmappings(int argc, char **argv, struct Trapframe *tf){
     return 0;
 }
 
-
-
-
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
@@ -357,7 +356,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
     physaddr_t ebp = read_ebp();
 
     cprintf("Stack backtrace:\n");  
-    while(ebp != 0) {
+    while(ebp <= USTACKTOP) {
         physaddr_t* pa = (physaddr_t*) ebp;
         cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
                 pa, eip, pa[2], pa[3], pa[3], pa[4], pa[5]);
@@ -368,7 +367,17 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
     return 0;
 }
 
-
+int
+mon_pc(int argc, char **argv, struct Trapframe *tf) {
+   struct Eipdebuginfo i;
+   int r = debuginfo_eip(tf->tf_eip, &i);
+   if(r < 0) cprintf("WARNING: symbol not found...\n");
+   cprintf("Error dump:\n");
+   cprintf("    File  : %s\n", i.eip_file);
+   cprintf("    Fn    : %s\n", i.eip_fn_name);
+   cprintf("    Line  : %d\n", i.eip_line);
+   return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
