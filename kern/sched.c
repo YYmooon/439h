@@ -36,6 +36,11 @@ sched_yield(void)
     int c = (curenv ? curenv->env_id : 0) % NENV;
     i = (c + 1) % NENV;
 
+    if(curenv && curenv->env_escape_preempt > 0) {
+        curenv->env_escape_preempt--;
+        env_run(curenv);
+    }
+
     while(i != c) {
         if (envs[i].env_type != ENV_TYPE_IDLE &&
             (envs[i].env_status == ENV_RUNNABLE)) {

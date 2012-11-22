@@ -210,6 +210,22 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
     return 0;
 }
 
+// allow the process to escape N clock preemptions
+// used by the debug printing code to escape preemption
+// while printing debugging info.
+// May also be used by the filesystem server to ensure that it is
+// never preempted.
+int
+sys_env_escape_preempt(unsigned times)
+{
+   if(curenv->env_escape_preempt && curenv->env_escape_preempt <= times)
+      KDEBUG("WARNING: environment %08x is disabling preemption while preemption protected",
+             curenv->env_id);
+
+    curenv->env_escape_preempt = times;
+    return 0;
+}
+
 // Allocate a page of memory and map it at 'va' with permission
 // 'perm' in the address space of 'envid'.
 // The page's contents are set to 0.
@@ -540,6 +556,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
         case SYS_env_set_pgfault_upcall:
             return sys_env_set_pgfault_upcall((envid_t) a1, 
                                               (void*)   a2);
+
+        case SYS_env_escape_preempt:
+            return sys_env_escape_preempt((unsigned) a1);
 
         case SYS_yield:
             sys_yield();

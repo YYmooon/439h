@@ -117,3 +117,8 @@ sys_ipc_recv(void *dstva)
     return syscall(SYS_ipc_recv, 1, (uint32_t)dstva, 0, 0, 0, 0);
 }
 
+int
+sys_env_escape_preempt(uint32_t times)
+{
+    return syscall(SYS_env_escape_preempt, 0, times, 0, 0, 0, 0);
+}
