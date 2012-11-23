@@ -52,6 +52,7 @@ struct File {
 // File system super-block (both in-memory and on-disk)
 
 #define FS_MAGIC    0x4A0530AE  // related vaguely to 'J\0S!'
+#define FS_MAX_READ (PGSIZE - (sizeof(int) + sizeof(size_t)))
 
 struct Super {
     uint32_t s_magic;       // Magic number: FS_MAGIC
