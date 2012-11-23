@@ -405,7 +405,6 @@ page_fault_handler(struct Trapframe *tf)
     // LAB 4: Your code here.
     else if(curenv->env_pgfault_upcall) {
         cprintf("[page_fault_handler] User fault with upcall...\n"); 
-        print_trapframe(tf);
         cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
 
         struct UTrapframe *utf;
