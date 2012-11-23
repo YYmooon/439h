@@ -224,15 +224,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
     
     unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
 
-    r = file_read(o->o_file, &ret->ret_buf, n, o->o_fd->fd_offset);
-    if(r < 0) return r;
-
-    o->o_fd->fd_offset += r;
-
-    if(o->o_fd->fd_offset > o->o_file->f_size)
-      o->o_file->f_size = o->o_fd->fd_offset;
-
-    return r;
+    return file_read(o->o_file, &ret->ret_buf, n, o->o_fd->fd_offset);
 }
 
 // Write req->req_n bytes from req->req_buf to req_fileid, starting at
@@ -246,7 +238,24 @@ serve_write(envid_t envid, struct Fsreq_write *req)
         cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
     // LAB 5: Your code here.
-    panic("serve_write not implemented");
+
+    struct OpenFile *o;
+    int r;
+
+    if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+        return r;
+    
+    unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
+
+    r = file_write(o->o_file, &req->req_buf, n, o->o_fd->fd_offset);
+    if(r < 0) return r;
+
+    o->o_fd->fd_offset += r;
+
+    if(o->o_fd->fd_offset > o->o_file->f_size)
+      o->o_file->f_size = o->o_fd->fd_offset;
+
+    return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
