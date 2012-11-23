@@ -451,7 +451,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
         env->env_status = ENV_RUNNABLE;
         env->env_ipc_perm = perm;
-        return 1;
+        return 0;
     }
     else {
         env->env_ipc_perm = 0;
