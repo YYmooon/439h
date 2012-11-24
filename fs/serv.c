@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 0
+#define debug 1
 
 // The file system server maintains three structures
 // for each open file.
@@ -130,14 +130,14 @@ serve_open(envid_t envid, struct Fsreq_open *req,
             if (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS)
                 goto try_open;
             if (debug)
-                cprintf("file_create failed: %e", r);
+                cprintf("file_create failed: %e\n", r);
             return r;
         }
     } else {
 try_open:
         if ((r = file_open(path, &f)) < 0) {
             if (debug)
-                cprintf("file_open failed: %e", r);
+                cprintf("file_open failed: %e\n", r);
             return r;
         }
     }
@@ -146,7 +146,7 @@ try_open:
     if (req->req_omode & O_TRUNC) {
         if ((r = file_set_size(f, 0)) < 0) {
             if (debug)
-                cprintf("file_set_size failed: %e", r);
+                cprintf("file_set_size failed: %e\n", r);
             return r;
         }
     }
@@ -235,7 +235,8 @@ int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
     if (debug)
-        cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+        cprintf("serve_write %08x %08x %08x\n", 
+                envid, req->req_fileid, req->req_n);
 
     // LAB 5: Your code here.
 
@@ -247,13 +248,26 @@ serve_write(envid_t envid, struct Fsreq_write *req)
     
     unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
 
+    assert(n);
+
     r = file_write(o->o_file, &req->req_buf, n, o->o_fd->fd_offset);
     if(r < 0) return r;
 
+    assert(r > 0);
+
     o->o_fd->fd_offset += r;
 
-    if(o->o_fd->fd_offset > o->o_file->f_size)
+    if(o->o_fd->fd_offset > o->o_file->f_size) {
       o->o_file->f_size = o->o_fd->fd_offset;
+      if(debug)
+        cprintf("[serve_write] wrote %d bytes and extended the file\n",
+                r);
+    } else {
+      if(debug)
+        cprintf("[serve_write] wrote %d bytes\n",
+                r);
+    }
+    assert(r > 0);
 
     return r;
 }
@@ -366,6 +380,7 @@ serve(void)
             r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
         } else if (req < NHANDLERS && handlers[req]) {
             r = handlers[req](whom, fsreq);
+            cprintf("Handler exited..\n");
         } else {
             cprintf("Invalid request code %d from %08x\n", whom, req);
             r = -E_INVAL;

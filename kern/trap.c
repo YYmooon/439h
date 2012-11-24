@@ -308,7 +308,7 @@ trap(struct Trapframe *tf)
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
 
-    faultcount++;
+    //faultcount++;
     if(faultcount > 200)
         panic("Well fuck I'm faulting a lot\n");
 
@@ -404,9 +404,9 @@ page_fault_handler(struct Trapframe *tf)
 
     // LAB 4: Your code here.
     else if(curenv->env_pgfault_upcall) {
-        cprintf("[page_fault_handler] User fault with upcall...\n"); 
-        print_trapframe(tf);
-        cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
+        //cprintf("[page_fault_handler] User fault with upcall...\n"); 
+        //print_trapframe(tf);
+        //cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
 
         struct UTrapframe *utf;
         char*  raw_addr;
@@ -434,7 +434,7 @@ page_fault_handler(struct Trapframe *tf)
         tf->tf_esp = (unsigned) raw_addr;
         tf->tf_eip = (unsigned) curenv->env_pgfault_upcall;
 
-        cprintf("[page_fault_handler] entering user recovery environment...\n"); 
+        //cprintf("[page_fault_handler] entering user recovery environment...\n"); 
 
         env_run(curenv);
 

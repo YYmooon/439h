@@ -22,7 +22,8 @@ fsipc(unsigned type, void *dstva)
     static_assert(sizeof(fsipcbuf) == PGSIZE);
 
     if (debug)
-        cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
+        cprintf("[%08x] fsipc %d %08x\n", 
+                thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
 
     ipc_send(fsenv, type, &fsipcbuf, PTE_P | PTE_W | PTE_U);
     return ipc_recv(NULL, dstva, NULL);
@@ -134,7 +135,9 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
     fsipcbuf.write.req_n      = n;
     memcpy(&fsipcbuf.write.req_buf, buf, n);
 
-    return fsipc(FSREQ_WRITE, NULL);
+    int r = fsipc(FSREQ_WRITE, NULL);
+    
+    return r;
 }
 
 static int
