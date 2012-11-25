@@ -22,4 +22,4 @@ V = @
 GRADER = lowry
 COURSE = cs439h
 MKLABENV = CLASS_UTAUSTIN=true
-LAB = 5
+LAB = 6

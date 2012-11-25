@@ -14,6 +14,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
+#include <kern/time.h>
 
 static struct Taskstate ts;
 static int faultcount;
@@ -245,6 +246,7 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+<<<<<<< HEAD
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
@@ -289,6 +291,38 @@ trap_dispatch(struct Trapframe *tf)
         env_destroy(curenv);
         return;
     }
+=======
+    // Handle processor exceptions.
+    // LAB 3: Your code here.
+
+    // Handle spurious interrupts
+    // The hardware sometimes raises these because of noise on the
+    // IRQ line or other reasons. We don't care.
+    if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
+        cprintf("Spurious interrupt on irq 7\n");
+        print_trapframe(tf);
+        return;
+    }
+
+    // Handle clock interrupts. Don't forget to acknowledge the
+    // interrupt using lapic_eoi() before calling the scheduler!
+    // LAB 4: Your code here.
+
+    // Add time tick increment to clock interrupts.
+    // Be careful! In multiprocessors, clock interrupts are
+    // triggered on every CPU.
+    // LAB 6: Your code here.
+
+
+    // Unexpected trap: The user process or the kernel has a bug.
+    print_trapframe(tf);
+    if (tf->tf_cs == GD_KT)
+        panic("unhandled trap in kernel");
+    else {
+        env_destroy(curenv);
+        return;
+    }
+>>>>>>> e9125b3a09e3b761d09a9c8eba4082c5addcf741
 }
 
 void
