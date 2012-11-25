@@ -193,7 +193,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
     if(curenv->env_id != t_e->env_parent_id)
       return -E_BAD_ENV;
     
-    tf->tf_cs = 3;
+    tf->tf_cs |= 3;
     memcpy(&t_e->env_tf, tf, sizeof(struct Trapframe));
 
     return 0;
