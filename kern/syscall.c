@@ -12,11 +12,11 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 
-#define ZERO_CALL_SUPPORT(x)                    \
-do {                                            \
-    if(x == 0) {                                \
-        x = curenv->env_id;                     \
-    }                                           \
+#define ZERO_CALL_SUPPORT(x)                            \
+do {                                                    \
+    if(x == 0) {                                        \
+        x = curenv->env_id;                             \
+    }                                                   \
 } while(0);
 
 // Print a string to the system console.
@@ -183,7 +183,21 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
     // LAB 5: Your code here.
     // Remember to check whether the user has supplied us with a good
     // address!
-    panic("sys_env_set_trapframe not implemented");
+    
+    ZERO_CALL_SUPPORT(envid); // you need this for exec()
+
+    struct Env* t_e = &envs[ENVX(envid)];
+    if(t_e->env_status == ENV_FREE)
+      return -E_BAD_ENV;
+    
+    if((curenv->env_id != t_e->env_parent_id) && 
+       (curenv->env_id != t_e->env_id))
+      return -E_BAD_ENV;
+    
+    tf->tf_cs |= 3;
+    memcpy(&t_e->env_tf, tf, sizeof(struct Trapframe));
+
+    return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct

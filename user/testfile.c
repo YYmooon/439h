@@ -4,6 +4,12 @@ const char *msg = "This is the NEW message of the day!\n\n";
 
 #define FVA ((struct Fd*)0xCCCCC000)
 
+bool
+__va_is_mapped(void *va)
+{
+    return (vpd[PDX(va)] & PTE_P) && (vpt[PGNUM(va)] & PTE_P);
+}
+
 static int
 xopen(const char *path, int mode)
 {
@@ -35,6 +41,10 @@ umain(int argc, char **argv)
 
     if ((r = xopen("/newmotd", O_RDONLY)) < 0)
         panic("serve_open /newmotd: %e", r);
+
+    assert(__va_is_mapped(FVA));
+    assert(__va_is_mapped(&FVA->fd_dev_id));
+
     if (FVA->fd_dev_id != 'f' || FVA->fd_offset != 0 || FVA->fd_omode != O_RDONLY)
         panic("serve_open did not fill struct Fd correctly\n");
     cprintf("serve_open is good\n");

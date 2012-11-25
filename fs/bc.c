@@ -5,7 +5,8 @@ void*
 diskaddr(uint32_t blockno)
 {
     if (blockno == 0 || (super && blockno >= super->s_nblocks))
-        panic("bad block number %08x in diskaddr, max is %08x", blockno, super->s_nblocks);
+        panic("bad block number %08x in diskaddr, max is %08x", 
+              blockno, super->s_nblocks);
     char* foo = (char*) (DISKMAP + blockno * BLKSIZE);
     return foo;
 }
@@ -57,7 +58,7 @@ bc_pgfault(struct UTrapframe *utf)
         cprintf("Fault on mapped page..\n");
         if(utf->utf_err == T_PGFLT) {
             // someone tried to write to the memory range...
-            // we don't really care if the page was dirty or not, it's dirty now.
+
             sys_page_map(0, addr, 
                          0, addr, 
                          (PTE_P | PTE_U | PTE_W));
@@ -72,8 +73,8 @@ bc_pgfault(struct UTrapframe *utf)
     } else {
         //// the file is unmapped
         // Load the sector in from memory
-        // Node that this is bloody stupid as it only allows us access to the first
-        // 3GB of space
+        // Node that this is bloody stupid as it only allows us 
+        // access to the first 3GB of space
         
         cprintf("Loading %08x sectors starting at sector %08x (block %08x)\n", 
               BLKSECTS, sectno, blockno);
@@ -126,7 +127,7 @@ flush_block(void *addr)
         ide_write(sectno, addr, BLKSECTS);
         sys_page_map(0, addr, 
                      0, addr,
-                     (PTE_P | PTE_U));
+                     (PTE_SYSCALL));
         cprintf("Wrote block %08x, now mapped r/o\n", blockno);
     }
 }

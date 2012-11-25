@@ -9,7 +9,7 @@
 #include "fs.h"
 
 
-#define debug 0
+#define debug 1
 
 // The file system server maintains three structures
 // for each open file.
@@ -130,14 +130,14 @@ serve_open(envid_t envid, struct Fsreq_open *req,
             if (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS)
                 goto try_open;
             if (debug)
-                cprintf("file_create failed: %e", r);
+                cprintf("file_create failed: %e\n", r);
             return r;
         }
     } else {
 try_open:
         if ((r = file_open(path, &f)) < 0) {
             if (debug)
-                cprintf("file_open failed: %e", r);
+                cprintf("file_open failed: %e\n", r);
             return r;
         }
     }
@@ -146,7 +146,7 @@ try_open:
     if (req->req_omode & O_TRUNC) {
         if ((r = file_set_size(f, 0)) < 0) {
             if (debug)
-                cprintf("file_set_size failed: %e", r);
+                cprintf("file_set_size failed: %e\n", r);
             return r;
         }
     }
@@ -215,7 +215,16 @@ serve_read(envid_t envid, union Fsipc *ipc)
     // Hint: Use file_read.
     // Hint: The seek position is stored in the struct Fd.
     // LAB 5: Your code here
-    panic("serve_read not implemented");
+
+    struct OpenFile *o;
+    int r;
+
+    if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+        return r;
+    
+    unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
+
+    return file_read(o->o_file, &ret->ret_buf, n, o->o_fd->fd_offset);
 }
 
 // Write req->req_n bytes from req->req_buf to req_fileid, starting at
@@ -226,10 +235,41 @@ int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
     if (debug)
-        cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+        cprintf("serve_write %08x %08x %08x\n", 
+                envid, req->req_fileid, req->req_n);
 
     // LAB 5: Your code here.
-    panic("serve_write not implemented");
+
+    struct OpenFile *o;
+    int r;
+
+    if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+        return r;
+    
+    unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
+
+    assert(n);
+
+    r = file_write(o->o_file, &req->req_buf, n, o->o_fd->fd_offset);
+    if(r < 0) return r;
+
+    assert(r > 0);
+
+    o->o_fd->fd_offset += r;
+
+    if(o->o_fd->fd_offset > o->o_file->f_size) {
+      o->o_file->f_size = o->o_fd->fd_offset;
+      if(debug)
+        cprintf("[serve_write] wrote %d bytes and extended the file\n",
+                r);
+    } else {
+      if(debug)
+        cprintf("[serve_write] wrote %d bytes\n",
+                r);
+    }
+    assert(r > 0);
+
+    return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -340,6 +380,7 @@ serve(void)
             r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
         } else if (req < NHANDLERS && handlers[req]) {
             r = handlers[req](whom, fsreq);
+            cprintf("Handler exited..\n");
         } else {
             cprintf("Invalid request code %d from %08x\n", whom, req);
             r = -E_INVAL;

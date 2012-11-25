@@ -22,7 +22,8 @@ fsipc(unsigned type, void *dstva)
     static_assert(sizeof(fsipcbuf) == PGSIZE);
 
     if (debug)
-        cprintf("[%08x] fsipc %d %08x\n", thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
+        cprintf("[%08x] fsipc %d %08x\n", 
+                thisenv->env_id, type, *(uint32_t *)&fsipcbuf);
 
     ipc_send(fsenv, type, &fsipcbuf, PTE_P | PTE_W | PTE_U);
     return ipc_recv(NULL, dstva, NULL);
@@ -69,7 +70,28 @@ open(const char *path, int mode)
     // file descriptor.
 
     // LAB 5: Your code here.
-    panic("open not implemented");
+
+    if(strlen(path) >= MAXPATHLEN) 
+      return -E_BAD_PATH;
+
+    struct Fd* fd;
+    int i, r;
+
+    if((i = fd_alloc(&fd)) < 0)
+      return i;
+
+    // r is now the index, and *fd is a pointer to the fd
+    // we need to map the Fd's page, and send the actual file
+    // open IPC request.
+    
+    strcpy((char*) &fsipcbuf.open.req_path, path);
+    fsipcbuf.open.req_omode = mode;
+
+    if((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+      fd_close(fd, 0);
+      return r;
+    }
+    return i;
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
@@ -100,7 +122,18 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
     // bytes read will be written back to fsipcbuf by the file
     // system server.
     // LAB 5: Your code here
-    panic("devfile_read not implemented");
+
+    n = (n < FS_MAX_READ) ? n : FS_MAX_READ;
+
+    fsipcbuf.read.req_fileid = fd->fd_file.id;
+    fsipcbuf.read.req_n      = n;
+
+    int r = fsipc(FSREQ_READ, NULL);
+    if(r < 0) return r;
+
+    memcpy(buf, &fsipcbuf.readRet.ret_buf, r);
+
+    return r;
 }
 
 // Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
@@ -116,7 +149,16 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
     // remember that write is always allowed to write *fewer*
     // bytes than requested.
     // LAB 5: Your code here
-    panic("devfile_write not implemented");
+
+    n = (n < FS_MAX_WRITE) ? n : FS_MAX_WRITE;
+
+    fsipcbuf.write.req_fileid = fd->fd_file.id;
+    fsipcbuf.write.req_n      = n;
+    memcpy(&fsipcbuf.write.req_buf, buf, n);
+
+    int r = fsipc(FSREQ_WRITE, NULL);
+    
+    return r;
 }
 
 static int
