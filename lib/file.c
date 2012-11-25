@@ -70,7 +70,28 @@ open(const char *path, int mode)
     // file descriptor.
 
     // LAB 5: Your code here.
-    panic("open not implemented");
+
+    if(strlen(path) >= MAXPATHLEN) 
+      return -E_BAD_PATH;
+
+    struct Fd* fd;
+    int i, r;
+
+    if((i = fd_alloc(&fd)) < 0)
+      return i;
+
+    // r is now the index, and *fd is a pointer to the fd
+    // we need to map the Fd's page, and send the actual file
+    // open IPC request.
+    
+    strcpy(&fsipcbuf.open.req_path, path);
+    fsipcbuf.open.req_omode = mode;
+
+    if((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+      fd_close(&fd, 0);
+      return r;
+    }
+    return i;
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
