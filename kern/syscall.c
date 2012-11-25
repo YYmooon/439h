@@ -190,7 +190,8 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
     if(t_e->env_status == ENV_FREE)
       return -E_BAD_ENV;
     
-    if(curenv->env_id != t_e->env_parent_id)
+    if((curenv->env_id != t_e->env_parent_id) && 
+       (curenv->env_id != t_e->env_id))
       return -E_BAD_ENV;
     
     tf->tf_cs |= 3;
