@@ -1,5 +1,5 @@
 #include <inc/string.h>
-
+#include <debug.h>
 #include "fs.h"
 
 // --------------------------------------------------------------
@@ -476,7 +476,7 @@ file_truncate_blocks(struct File *f, off_t newsize)
     new_nblocks = (newsize + BLKSIZE - 1) / BLKSIZE;
     for (bno = new_nblocks; bno < old_nblocks; bno++)
         if ((r = file_free_block(f, bno)) < 0)
-            cprintf("warning: file_free_block: %e", r);
+            BC_DEBUG("warning: file_free_block: %e", r);
 
     if (new_nblocks <= NDIRECT && f->f_indirect) {
         free_block(f->f_indirect);

@@ -1,6 +1,7 @@
 // User-level IPC library routines
 
 #include <inc/lib.h>
+#include <debug.h>
 
 // Receive a value via IPC and return it.
 // If 'pg' is nonnull, then any page sent by the sender will be mapped at
@@ -27,27 +28,27 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
     envid_t sender;
     int perm;
        
-    if(!pg){
+    if(!pg)
         pg = (void *) UTOP;
-    }
+
+    IPC_DEBUG("making blocking call to ipc_recv\n");
 
     if((val = sys_ipc_recv(pg)) < 0){
+        IPC_DEBUG("ipc_recv returned %d... dealing\n", val);
         sender = 0;
         perm = 0;
-    }
-    else{
+    } else {
+        IPC_DEBUG("ipc_recv returned %d!\n", val);
         sender = thisenv->env_ipc_from;
         perm = thisenv->env_ipc_perm;
         val = thisenv->env_ipc_value;
     }
 
-    if(from_env_store) {
+    if(from_env_store)
         *from_env_store = sender;
-    }
 
-    if(perm_store) {
+    if(perm_store)
         *perm_store = perm;
-    }
        
     return val;
 }
@@ -65,21 +66,20 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
     int err;
 
-    if(!pg){
-        pg = (void *) UTOP; // invalid srcva
+    if(!pg)
         perm = 0;
-    }
 
     while(1){
         err = sys_ipc_try_send(to_env, val, pg, perm);
         if(!err){
+            IPC_DEBUG("try_send returned %d\n", err);
             break; // success
-        }
-        else if(err != -E_IPC_NOT_RECV){
+        } else if(err != -E_IPC_NOT_RECV){
             panic("ipc_send failed with error %e.\n", err);
+        } else {
+          IPC_DEBUG("try_send returned junk, sleeping\n");
+          sys_yield();
         }
-
-        sys_yield();
     }
 }
 

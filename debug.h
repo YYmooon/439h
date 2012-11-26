@@ -7,6 +7,7 @@
 #define COLOR_CYAN    "\e[0;36m"
 #define COLOR_RED     "\e[0;31m"
 #define COLOR_PURPLE  "\e[0;35m"
+#define COLOR_LPURPLE "\e[1;35m"
 #define COLOR_BROWN   "\e[0;33m"
 #define COLOR_YELLOW  "\e[1;33m"
 #define COLOR_WHITE   "\e[1;37m"
@@ -23,7 +24,6 @@ do {                                          \
             __func__,                         \
             (COLOR_RESET));                   \
     cprintf(__VA_ARGS__);                     \
-    cprintf("\n");                            \
 } while(0);
 
 #else
@@ -38,11 +38,13 @@ do {                                          \
             __func__,                         \
             (COLOR_RESET));                   \
     cprintf(__VA_ARGS__);                     \
-    cprintf("\n");                            \
 } while(0);
 #endif
 
-#define FS_DEBUG(...) CDEBUG(COLOR_CYAN,   __VA_ARGS__)
-#define K_DEBUG(...)  CDEBUG(COLOR_PURPLE, __VA_ARGS__)
-#define DEBUG(...)    CDEBUG(COLOR_RESET,  __VA_ARGS__)
+#define FS_DEBUG(...)   CDEBUG(COLOR_CYAN,    __VA_ARGS__)
+#define BC_DEBUG(...)   CDEBUG(COLOR_BLUE,    __VA_ARGS__)
+#define KT_DEBUG(...)   CDEBUG(COLOR_LPURPLE, __VA_ARGS__)
+#define IPC_DEBUG(...)  CDEBUG(COLOR_YELLOW,  __VA_ARGS__)
+#define K_DEBUG(...)    CDEBUG(COLOR_PURPLE,  __VA_ARGS__)
+#define DEBUG(...)      CDEBUG(COLOR_RESET,   __VA_ARGS__)
 #endif

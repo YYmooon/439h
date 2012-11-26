@@ -1,3 +1,4 @@
+#include <debug.h>
 #include "fs.h"
 
 // Return the virtual address of this disk block.
@@ -51,11 +52,10 @@ bc_pgfault(struct UTrapframe *utf)
     // the page dirty).
     //
     // LAB 5: Your code here
-    //
  
     if(va_is_mapped(addr)) {
         //// the file is mapped
-        cprintf("Fault on mapped page..\n");
+        BC_DEBUG("Fault on mapped page..\n");
         if(utf->utf_err == T_PGFLT) {
             // someone tried to write to the memory range...
 
@@ -63,7 +63,7 @@ bc_pgfault(struct UTrapframe *utf)
                          0, addr, 
                          (PTE_P | PTE_U | PTE_W));
 
-            cprintf("Remapped page %x writable\n", blockno);
+            BC_DEBUG("Remapped page %x writable\n", blockno);
         } else {
             // how the shit does this happen...
             // don't do anything interesting
@@ -76,7 +76,7 @@ bc_pgfault(struct UTrapframe *utf)
         // Node that this is bloody stupid as it only allows us 
         // access to the first 3GB of space
         
-        cprintf("Loading %08x sectors starting at sector %08x (block %08x)\n", 
+        BC_DEBUG("Loading %08x sectors starting at sector %08x (block %08x)\n", 
               BLKSECTS, sectno, blockno);
     
         sys_page_alloc(0, addr, PTE_P | PTE_U | PTE_W);
@@ -88,7 +88,7 @@ bc_pgfault(struct UTrapframe *utf)
                      0, addr, 
                      (PTE_P | PTE_U));
         
-        cprintf("Loaded block %x read only\n", blockno);
+        BC_DEBUG("Loaded block %x read only\n", blockno);
     }
 
     // Check that the block we read was allocated. (exercise for
@@ -128,7 +128,7 @@ flush_block(void *addr)
         sys_page_map(0, addr, 
                      0, addr,
                      (PTE_SYSCALL));
-        cprintf("Wrote block %08x, now mapped r/o\n", blockno);
+        BC_DEBUG("Wrote block %08x, now mapped r/o\n", blockno);
     }
 }
 
@@ -142,8 +142,8 @@ check_bc(void)
 
     // back up super block
     memmove(&backup, diskaddr(1), sizeof(backup));
-    cprintf("Wrote superblock to disk ram block..\n");
-    cprintf("in memory magic number: %08x\n", ((struct Super*)diskaddr(1))->s_magic);
+    BC_DEBUG("Wrote superblock to disk ram block..\n");
+    BC_DEBUG("in memory magic number: %08x\n", ((struct Super*)diskaddr(1))->s_magic);
 
     // smash it
     strcpy(diskaddr(1), "OOPS!\n");
@@ -168,9 +168,9 @@ check_bc(void)
     flush_block(diskaddr(1));
 
     assert(memcmp(diskaddr(1), &backup, sizeof(backup)) == 0);
-    cprintf("backup magic number   : %08x\n", backup.s_magic);
-    cprintf("in memory magic number: %08x\n", ((struct Super*)diskaddr(1))->s_magic);
-    cprintf("expected magic value  : %08x\n", FS_MAGIC);
+    BC_DEBUG("backup magic number   : %08x\n", backup.s_magic);
+    BC_DEBUG("in memory magic number: %08x\n", ((struct Super*)diskaddr(1))->s_magic);
+    BC_DEBUG("expected magic value  : %08x\n", FS_MAGIC);
     cprintf("Fixed superblock..\n");
 
     cprintf("block cache is good\n");
@@ -179,7 +179,7 @@ check_bc(void)
 void
 bc_init(void)
 {
-    cprintf("Initializing the block count\n");
+    BC_DEBUG("Initializing the block count\n");
     set_pgfault_handler(bc_pgfault);
     check_bc();
 }
