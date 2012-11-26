@@ -1,10 +1,12 @@
 #include <debug.h>
 #include "fs.h"
+#include "../debug.h"
 
 // Return the virtual address of this disk block.
 void*
 diskaddr(uint32_t blockno)
 {
+    if(super) DEBUG("superblock %08x", super);
     if (blockno == 0 || (super && blockno >= super->s_nblocks))
         panic("bad block number %08x in diskaddr, max is %08x", 
               blockno, super->s_nblocks);

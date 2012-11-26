@@ -5,6 +5,7 @@
 
 #include <inc/x86.h>
 #include <inc/string.h>
+#include <debug.h>
 
 #include "fs.h"
 
@@ -30,10 +31,10 @@
 //    file IDs to struct OpenFile.
 
 struct OpenFile {
-    uint32_t o_fileid;  // file id
+    uint32_t o_fileid;      // file id
     struct File *o_file;    // mapped descriptor for open file
-    int o_mode;     // open mode
-    struct Fd *o_fd;    // Fd page
+    int o_mode;             // open mode
+    struct Fd *o_fd;        // Fd page
 };
 
 // Max number of open files in the file system at once
@@ -119,7 +120,7 @@ serve_open(envid_t envid, struct Fsreq_open *req,
     // Find an open file ID
     if ((r = openfile_alloc(&o)) < 0) {
         if (debug)
-            cprintf("openfile_alloc failed: %e", r);
+            cprintf("openfile_alloc failed: %e\n", r);
         return r;
     }
     fileid = r;
@@ -282,8 +283,7 @@ serve_stat(envid_t envid, union Fsipc *ipc)
     struct OpenFile *o;
     int r;
 
-    if (debug)
-        cprintf("serve_stat %08x %08x\n", envid, req->req_fileid);
+    DEBUG("serve_stat %08x", req->req_fileid);
 
     if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
         return r;
@@ -396,6 +396,7 @@ umain(int argc, char **argv)
     static_assert(sizeof(struct File) == 256);
     binaryname = "fs";
     cprintf("FS is running\n");
+    cprintf("FS is envid %08x\n", sys_getenvid());
 
     // Check that we are able to do I/O
     outw(0x8A00, 0x8A00);

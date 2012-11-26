@@ -99,16 +99,26 @@ sys_exofork(void)
     unsigned res = env_alloc(&e, curenv->env_id);
     if(res < 0) {
         if(res == -E_NO_FREE_ENV) {
+<<<<<<< HEAD
             K_DEBUG("no free envs!\n");
         } if(res == -E_NO_MEM) {
             K_DEBUG("no free mem!\n");
+=======
+            KDEBUG("no free envs!");
+        } if(res == -E_NO_MEM) {
+            KDEBUG("no free mem!");
+>>>>>>> feature/no-preempt
         } return res; // -E_NO_FREE_ENV, -E_NO_MEM
     }
     e->env_status = ENV_NOT_RUNNABLE;
     e->env_type   = ENV_TYPE_USER;
     e->env_tf = curenv->env_tf;                 // copy register state
+<<<<<<< HEAD
     K_DEBUG("child epi %08x\n",
             e->env_tf.tf_eip);
+=======
+    KDEBUG("child epi %08x", e->env_tf.tf_eip);
+>>>>>>> feature/no-preempt
     e->env_tf.tf_regs.reg_eax = 0;              // set child return code
     return e->env_id;                           // return the child's env. id
 }
@@ -222,6 +232,22 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
     user_mem_assert(curenv, func, PGSIZE, PTE_U | PTE_P);
     // okay fine do it
     e->env_pgfault_upcall = func;
+    return 0;
+}
+
+// allow the process to escape N clock preemptions
+// used by the debug printing code to escape preemption
+// while printing debugging info.
+// May also be used by the filesystem server to ensure that it is
+// never preempted.
+int
+sys_env_escape_preempt(unsigned times)
+{
+   if(curenv->env_escape_preempt && curenv->env_escape_preempt <= times)
+      KDEBUG("WARNING: environment %08x is disabling preemption while preemption protected",
+             curenv->env_id);
+
+    curenv->env_escape_preempt = times;
     return 0;
 }
 
@@ -342,11 +368,16 @@ sys_page_map(envid_t srcenvid, void *srcva,
         return -E_INVAL;
     }
 
-    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
+    int perm_check = (perm ^ (PTE_AVAIL | PTE_W)) & 
+                     ~(PTE_W | PTE_AVAIL | PTE_U | PTE_P);
     if(perm_check) {
         // the permission bits are wrong..
         // will only catch perm bits that should never be set
+<<<<<<< HEAD
         K_DEBUG("Permission error\n");
+=======
+        KDEBUG("Permission error");
+>>>>>>> feature/no-preempt
         return -E_INVAL;
     }
 
@@ -558,6 +589,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
         case SYS_env_set_pgfault_upcall:
             return sys_env_set_pgfault_upcall((envid_t) a1, 
                                               (void*)   a2);
+
+        case SYS_env_escape_preempt:
+            return sys_env_escape_preempt((unsigned) a1);
 
         case SYS_yield:
             sys_yield();

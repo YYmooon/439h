@@ -1,7 +1,7 @@
 #include <inc/fs.h>
 #include <inc/lib.h>
 
-#define SECTSIZE    512         // bytes per disk sector
+#define SECTSIZE    512                     // bytes per disk sector
 #define BLKSECTS    (BLKSIZE / SECTSIZE)    // sectors per block
 
 /* Disk block n, when in memory, is mapped into the file system
@@ -12,7 +12,7 @@
 #define DISKSIZE    0xC0000000
 
 struct Super *super;        // superblock
-uint32_t *bitmap;       // bitmap blocks mapped in memory
+uint32_t *bitmap;           // bitmap blocks mapped in memory
 
 /* ide.c */
 bool    ide_probe_disk1(void);
