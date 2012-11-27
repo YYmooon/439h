@@ -34,7 +34,7 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
     IPC_DEBUG("making blocking call to ipc_recv\n");
 
     if((val = sys_ipc_recv(pg)) < 0){
-        IPC_DEBUG("ipc_recv returned %d... dealing\n", val);
+        IPC_DEBUG("ipc_recv returned %e... dealing\n", val);
         sender = 0;
         perm = 0;
     } else {
@@ -42,6 +42,9 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
         sender = thisenv->env_ipc_from;
         perm = thisenv->env_ipc_perm;
         val = thisenv->env_ipc_value;
+
+        if(perm)
+          IPC_DEBUG("ipc_recv did map a page at %08x\n", pg);
     }
 
     if(from_env_store)
@@ -66,10 +69,18 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
     int err;
 
-    if(!pg)
-        perm = 0;
+    if(!pg && perm) {
+      IPC_DEBUG("WTF man, you can't pass no page with permissions, squelshing permissions\n");
+      perm = 0;
+    } else if (pg && !perm) {
+      IPC_DEBUG("WTF man, you can't pass a page with no permissions, squelshing page\n");
+      pg = 0;
+    } else if ((!pg && !perm) || (pg && perm)) {
+      IPC_DEBUG("sane IPC arguments, no cleaning required\n");
+    }
 
     while(1){
+        IPC_DEBUG("sys_ipc_try_send(%08x, %08x, %08x, %08x);\n", to_env, val, pg, perm);
         err = sys_ipc_try_send(to_env, val, pg, perm);
         if(!err){
             IPC_DEBUG("try_send returned %d\n", err);
