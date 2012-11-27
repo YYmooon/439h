@@ -308,7 +308,7 @@ trap(struct Trapframe *tf)
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
 
-    faultcount++;
+    //faultcount++;
     if(faultcount > 25)
         panic("Well fuck I'm faulting a lot\n");
 
