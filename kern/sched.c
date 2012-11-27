@@ -44,12 +44,9 @@ sched_yield(void)
     }
 
     while(i != c) {
-        if (envs[i].env_type != ENV_TYPE_IDLE &&
+        if ((envs[i].env_type != ENV_TYPE_IDLE) &&
             (envs[i].env_status == ENV_RUNNABLE)) {
-            //cprintf("env %08x launching env %08x\n", 
-            //        (curenv) ? curenv->env_id : 0,
-            //        envs[i].env_id);
-
+            cprintf("env %08x launching env %08x\n", c, envs[i].env_id);
             env_run(&envs[i]);
         } else { 
             i = (i + 1) % NENV;

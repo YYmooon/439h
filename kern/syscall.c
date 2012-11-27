@@ -449,6 +449,8 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
     ZERO_CALL_SUPPORT(envid);
+    assert(envid);
+    assert(curenv);
 
     // LAB 4: Your code here.
     struct Env * env;
@@ -479,26 +481,22 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
         if((perm & PTE_W) && !(*pte & PTE_W))
             panic("Are you sure you want to mapping a read-only page to a status that can be written?");
 
-        K_DEBUG("trying to map va %08x into env %x's space at %08x\n", srcva, envid, env->env_ipc_dstva);
-
-        int result = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm | PTE_P);
-
-        K_DEBUG("got %08x back from sys_page_map..\n", result);
-
+        int result = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm);
         if(result < 0)
             return result;
 
         env->env_ipc_perm = perm;
-        return 0;
     }
     else {
         env->env_ipc_perm = 0;
     }
 
-    env->env_ipc_recving = 0;
-    env->env_ipc_from = curenv->env_id;
-    env->env_ipc_value = value;
-    env->env_status = ENV_RUNNABLE;
+    env->env_ipc_recving  = 0;
+    env->env_ipc_from     = sys_getenvid();
+    env->env_ipc_value    = value;
+    env->env_status       = ENV_RUNNABLE;
+
+    cprintf("\e[0;31m%08x unblocked\e[0;00m\n", env->env_id);
 
     return 0;
 }
@@ -522,12 +520,13 @@ sys_ipc_recv(void *dstva)
         return -E_INVAL;
     }
 
-    curenv->env_ipc_value = 0;
-    curenv->env_ipc_from = 0;
-    curenv->env_ipc_perm = 0;
+    curenv->env_ipc_value   = 0;
+    curenv->env_ipc_from    = 0;
+    curenv->env_ipc_perm    = 0;
     curenv->env_ipc_recving = 1;
-    curenv->env_ipc_dstva = dstva;
-    curenv->env_status = ENV_NOT_RUNNABLE;
+    curenv->env_ipc_dstva   = dstva;
+    curenv->env_status      = ENV_NOT_RUNNABLE;
+    cprintf("\e[0;31m%08x blocked\e[0;00m\n", curenv->env_id);
 
     return 0;
 }

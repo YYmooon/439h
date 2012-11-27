@@ -54,13 +54,14 @@ bc_pgfault(struct UTrapframe *utf)
     // the page dirty).
     //
     // LAB 5: Your code here
+    //
  
     if(va_is_mapped(addr)) {
         //// the file is mapped
         BC_DEBUG("Fault on mapped page..\n");
         if(utf->utf_err == T_PGFLT) {
             // someone tried to write to the memory range...
-
+            // we don't really care if the page was dirty or not, it's dirty now.
             sys_page_map(0, addr, 
                          0, addr, 
                          (PTE_P | PTE_U | PTE_W));
