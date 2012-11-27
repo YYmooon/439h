@@ -122,7 +122,7 @@ flush_block(void *addr)
         panic("flush_block of bad va %08x", addr);
 
     // LAB 5: Your code here.
-    if(va_is_dirty(addr) && va_is_mapped(addr)) {
+    if(va_is_mapped(addr) && va_is_dirty(addr)) {
         ide_write(sectno, addr, BLKSECTS);
         sys_page_map(0, addr, 
                      0, addr,
