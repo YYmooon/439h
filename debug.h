@@ -12,32 +12,50 @@
 #define COLOR_YELLOW  "\e[1;33m"
 #define COLOR_WHITE   "\e[1;37m"
 
-#ifndef JOS_KERNEL
+static inline int 
+__strlen(char * f)
+{ int i = 0;
+  while(*f) {i++; f++;}
+  return i;
+}
 
-#define CDEBUG(color, ...)                    \
-do {                                          \
-    cprintf("[%s%08x %-16s:%3d in %-24s%s] ", \
-            (color),                          \
-            sys_getenvid(),                   \
-            __FILE__,                         \
-            __LINE__,                         \
-            __func__,                         \
-            (COLOR_RESET));                   \
-    cprintf(__VA_ARGS__);                     \
+static inline int 
+last_char_is_newline(char *s)
+{ int l = __strlen(s);
+  return *(l+s-1) == '\n';
+}
+
+#define VA_NL_TEST(s, ...) (last_char_is_newline(s))
+
+#ifndef JOS_KERNEL
+#define CDEBUG(color, ...)                      \
+do {                                            \
+    sys_env_escape_preempt(0xBAD1DEA);          \
+    cprintf("[%s%08x %-16s:%3d in %-24s%s] ",   \
+            (color),                            \
+            sys_getenvid(),                     \
+            __FILE__,                           \
+            __LINE__,                           \
+            __func__,                           \
+            (COLOR_RESET));                     \
+    cprintf(__VA_ARGS__);                       \
+    if(!VA_NL_TEST(__VA_ARGS__)) cprintf("\n"); \
+    sys_env_escape_preempt(0x0);                \
 } while(0);
 
 #else
 
-#define CDEBUG(color, ...)                    \
-do {                                          \
-    cprintf("[%s%08x %-16s:%3d in %-24s%s] ", \
-            (color),                          \
-            (curenv ? curenv->env_id:0),      \
-            __FILE__,                         \
-            __LINE__,                         \
-            __func__,                         \
-            (COLOR_RESET));                   \
-    cprintf(__VA_ARGS__);                     \
+#define CDEBUG(color, ...)                      \
+do {                                            \
+    cprintf("[%s%08x %-16s:%3d in %-24s%s] ",   \
+            (color),                            \
+            (curenv ? curenv->env_id:0),        \
+            __FILE__,                           \
+            __LINE__,                           \
+            __func__,                           \
+            (COLOR_RESET));                     \
+    cprintf(__VA_ARGS__);                       \
+    if(!VA_NL_TEST(__VA_ARGS__)) cprintf("\n"); \
 } while(0);
 #endif
 
