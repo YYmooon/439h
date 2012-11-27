@@ -99,26 +99,16 @@ sys_exofork(void)
     unsigned res = env_alloc(&e, curenv->env_id);
     if(res < 0) {
         if(res == -E_NO_FREE_ENV) {
-<<<<<<< HEAD
             K_DEBUG("no free envs!\n");
         } if(res == -E_NO_MEM) {
             K_DEBUG("no free mem!\n");
-=======
-            KDEBUG("no free envs!");
-        } if(res == -E_NO_MEM) {
-            KDEBUG("no free mem!");
->>>>>>> feature/no-preempt
         } return res; // -E_NO_FREE_ENV, -E_NO_MEM
     }
     e->env_status = ENV_NOT_RUNNABLE;
     e->env_type   = ENV_TYPE_USER;
     e->env_tf = curenv->env_tf;                 // copy register state
-<<<<<<< HEAD
     K_DEBUG("child epi %08x\n",
             e->env_tf.tf_eip);
-=======
-    KDEBUG("child epi %08x", e->env_tf.tf_eip);
->>>>>>> feature/no-preempt
     e->env_tf.tf_regs.reg_eax = 0;              // set child return code
     return e->env_id;                           // return the child's env. id
 }
@@ -342,8 +332,9 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 //      address space.
 //  -E_NO_MEM if there's no memory to allocate any necessary page tables.
 static int
-sys_page_map(envid_t srcenvid, void *srcva,
-         envid_t dstenvid, void *dstva, int perm)
+sys_page_map(envid_t srcenvid, void *srcva, 
+             envid_t dstenvid, void *dstva, 
+             int perm)
 {
     ZERO_CALL_SUPPORT(srcenvid);
     ZERO_CALL_SUPPORT(dstenvid);
@@ -373,11 +364,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
     if(perm_check) {
         // the permission bits are wrong..
         // will only catch perm bits that should never be set
-<<<<<<< HEAD
         K_DEBUG("Permission error\n");
-=======
-        KDEBUG("Permission error");
->>>>>>> feature/no-preempt
         return -E_INVAL;
     }
 
@@ -470,36 +457,37 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 
     if(envid2env(envid, &env, 0) < 0)
         return -E_BAD_ENV;
+
     if(env->env_ipc_recving == 0)
         return -E_IPC_NOT_RECV;
-    if((uintptr_t) srcva < UTOP){
+
+    if(srcva && (uintptr_t) srcva < UTOP){
         if((uintptr_t) srcva % PGSIZE)
             return -E_INVAL;
+
         if(!(perm & PTE_P) || !(perm & PTE_U))
             return -E_INVAL;
+
         if((perm & 0xfff) & ~(PTE_AVAIL | PTE_P | PTE_W | PTE_U))
             return -E_INVAL;
     }
 
-    env->env_ipc_recving = 0;
-    env->env_ipc_from = curenv->env_id;
-    env->env_ipc_value = value;
-
-    if(((uintptr_t) (env->env_ipc_dstva) < UTOP) && ((uintptr_t) srcva < UTOP)){
+    if(srcva && env->env_ipc_dstva && ((uintptr_t) srcva < UTOP)){
         if((page = page_lookup(curenv->env_pgdir, srcva, &pte)) == NULL)
             return -E_INVAL;
 
         if((perm & PTE_W) && !(*pte & PTE_W))
             panic("Are you sure you want to mapping a read-only page to a status that can be written?");
 
-        K_DEBUG("trying to map page into env %x's space\n", envid);
-        int result = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm);
-        K_DEBUG("got %08x back..\n", result);
+        K_DEBUG("trying to map va %08x into env %x's space at %08x\n", srcva, envid, env->env_ipc_dstva);
+
+        int result = page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm | PTE_P);
+
+        K_DEBUG("got %08x back from sys_page_map..\n", result);
 
         if(result < 0)
             return result;
 
-        env->env_status = ENV_RUNNABLE;
         env->env_ipc_perm = perm;
         return 0;
     }
@@ -507,6 +495,9 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
         env->env_ipc_perm = 0;
     }
 
+    env->env_ipc_recving = 0;
+    env->env_ipc_from = curenv->env_id;
+    env->env_ipc_value = value;
     env->env_status = ENV_RUNNABLE;
 
     return 0;
