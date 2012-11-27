@@ -310,13 +310,8 @@ trap(struct Trapframe *tf)
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
 
-<<<<<<< HEAD
     //faultcount++;
     if(faultcount > 200)
-=======
-    faultcount++;
-    if(faultcount > 1000)
->>>>>>> feature/no-preempt
         panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
