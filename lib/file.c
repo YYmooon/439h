@@ -83,11 +83,11 @@ open(const char *path, int mode)
     // we need to map the Fd's page, and send the actual file
     // open IPC request.
     
-    strcpy(&fsipcbuf.open.req_path, path);
+    strcpy((char*) &fsipcbuf.open.req_path, path);
     fsipcbuf.open.req_omode = mode;
 
     if((r = fsipc(FSREQ_OPEN, fd)) < 0) {
-      fd_close(&fd, 0);
+      fd_close(fd, 0);
       return r;
     }
     return i;
