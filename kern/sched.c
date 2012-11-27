@@ -4,6 +4,7 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 #include <kern/spinlock.h>
+#include <debug.h>
 
 // Choose a user environment to run and run it.
 void
@@ -35,6 +36,13 @@ sched_yield(void)
     int c = (curenv ? curenv->env_id : 0) % NENV;
     i = (c + 1) % NENV;
 
+    if(curenv && curenv->env_escape_preempt > 0) {
+        if(curenv->env_escape_preempt != 0xBAD1DEA)
+            curenv->env_escape_preempt--;
+
+        env_run(curenv);
+    }
+
     while(i != c) {
         if (envs[i].env_type != ENV_TYPE_IDLE &&
             (envs[i].env_status == ENV_RUNNABLE)) {
@@ -51,7 +59,7 @@ sched_yield(void)
     if(curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE) {
         env_run(curenv);
     } else if (cpunum() == 0) {
-        cprintf("No more runnable environments!\n");
+        K_DEBUG("No more runnable environments!");
         while (1)
             monitor(NULL);
     } else {

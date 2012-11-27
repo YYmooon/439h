@@ -15,6 +15,8 @@
 #include <kern/spinlock.h>
 #include <kern/kdebug.h>
 
+#include <debug.h>
+
 static struct Taskstate ts;
 static int faultcount;
 
@@ -248,7 +250,7 @@ trap_dispatch(struct Trapframe *tf)
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
-        cprintf("[trap_dispatch] Engaging page_fault_handler\n");
+        KT_DEBUG("Engaging page_fault_handler\n");
         page_fault_handler(tf);
     } else if(tf->tf_trapno == T_BRKPT){
         monitor(tf);
@@ -266,7 +268,7 @@ trap_dispatch(struct Trapframe *tf)
     // The hardware sometimes raises these because of noise on the
     // IRQ line or other reasons. We don't care.
     else if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-        cprintf("Spurious interrupt on irq 7\n");
+        KT_DEBUG("Spurious interrupt on irq 7\n");
         print_trapframe(tf);
         return;
     }
@@ -412,7 +414,7 @@ page_fault_handler(struct Trapframe *tf)
         char*  raw_addr;
 
         if((UXSTACKTOP >= tf->tf_esp) && (UXSTACKTOP-PGSIZE <  tf->tf_esp)) {
-            cprintf("[page_fault_handler] recursive fault, adding an exception stack frame\n");
+            KT_DEBUG("recursive fault, adding an exception stack frame\n");
             raw_addr = (char*) tf->tf_esp - 4;
         } else {
             raw_addr = (char*) UXSTACKTOP - 1;
@@ -439,9 +441,9 @@ page_fault_handler(struct Trapframe *tf)
         env_run(curenv);
 
     } else {
-        cprintf("[page_fault_handler] User fault with __NO__ upcall...\n"); 
+        KT_DEBUG("User fault with __NO__ upcall...\n"); 
         // Destroy the environment that caused the fault.
-        cprintf("[%08x] user fault va %08x ip %08x\n",
+        KT_DEBUG("user fault va %08x ip %08x\n",
             curenv->env_id, fault_va, tf->tf_eip);
         print_trapframe(tf);
         env_destroy(curenv);
