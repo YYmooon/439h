@@ -80,7 +80,7 @@ ide_read(uint32_t secno, void *dst, size_t nsecs)
         if ((r = ide_wait_ready(1)) < 0) {
             return r;
         } else {
-          DEBUG("Read data to address [%08x %08x)", dst, dst + SECTSIZE);
+          IDE_DEBUG("Read data to address [%08x %08x)", dst, dst + SECTSIZE);
           insl(0x1F0, dst, SECTSIZE/4);
         }
     }
@@ -107,6 +107,7 @@ ide_write(uint32_t secno, const void *src, size_t nsecs)
     for (; nsecs > 0; nsecs--, src += SECTSIZE) {
         if ((r = ide_wait_ready(1)) < 0)
             return r;
+        IDE_DEBUG("Wrote data from address [%08x %08x)", src, src + SECTSIZE);
         outsl(0x1F0, src, SECTSIZE/4);
     }
 

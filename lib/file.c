@@ -1,8 +1,9 @@
 #include <inc/fs.h>
 #include <inc/string.h>
 #include <inc/lib.h>
+#include <debug.h>
 
-#define debug 1
+#define debug 0
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
 
@@ -85,8 +86,8 @@ open(const char *path, int mode)
       fd_pg = (void*) fd;
     }
 
-    cprintf("allocated file descriptor %d\n", fd_id);
-    cprintf("    corresponding page is %08x\n", fd_pg);
+    DEBUG("allocated file descriptor %d\n", fd_id);
+    DEBUG("    corresponding page is %08x\n", fd_pg);
 
     // r is now the index, and *fd is a pointer to the fd
     // we need to map the Fd's page, and send the actual file
