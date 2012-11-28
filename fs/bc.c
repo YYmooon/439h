@@ -6,9 +6,9 @@
 void*
 diskaddr(uint32_t blockno)
 {
-    if(super) DEBUG("superblock %08x", super);
+    //if(super) DEBUG("superblock %08x", super);
     if (blockno == 0 || (super && blockno >= super->s_nblocks))
-        panic("bad block number %08x in diskaddr, max is %08x", 
+        panic("bad block number %08x in diskaddr, max is %08x and 0 is protected", 
               blockno, super->s_nblocks);
     char* foo = (char*) (DISKMAP + blockno * BLKSIZE);
     return foo;
