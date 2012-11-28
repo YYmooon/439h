@@ -373,7 +373,6 @@ serve(void)
             r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
         } else if (req < NHANDLERS && handlers[req]) {
             r = handlers[req](whom, fsreq);
-            cprintf("Handler exited..\n");
         } else {
             cprintf("Invalid request code %d from %08x\n", whom, req);
             r = -E_INVAL;
