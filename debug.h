@@ -66,5 +66,6 @@ do {                                            \
 #define IDE_DEBUG(...)  //CDEBUG(COLOR_BROWN,   __VA_ARGS__)
 #define K_DEBUG(...)    //CDEBUG(COLOR_PURPLE,  __VA_ARGS__)
 #define KDEBUG(...)     //K_DEBUG(__VA_ARGS__)
+#define DVR_DEBUG(...)  CDEBUG(COLOR_RED, __VA_ARGS__)
 #define DEBUG(...)      CDEBUG(COLOR_RESET,   __VA_ARGS__)
 #endif
