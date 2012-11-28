@@ -250,7 +250,11 @@ trap_dispatch(struct Trapframe *tf)
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
-        KT_DEBUG("Engaging page_fault_handler\n");
+        if(curenv) {
+          curenv->env_fault_count++;
+        } if(!curenv || curenv->env_fault_count > 5) {
+            panic("SHIT BE B0RKEN\n");
+        }
         page_fault_handler(tf);
     } else if(tf->tf_trapno == T_BRKPT){
         monitor(tf);
@@ -310,9 +314,6 @@ trap(struct Trapframe *tf)
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
 
-    //faultcount++;
-    if(faultcount > 200)
-        panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
         // Trapped from user mode.

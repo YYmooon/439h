@@ -60,6 +60,7 @@ int sys_ipc_recv(void *rcv_pg);
 int sys_env_escape_preempt(uint32_t times);
 int sys_env_disable_preempt();
 int sys_env_enable_preempt();
+int sys_env_recovered();
 
 // This must be inlined.  Exercise for reader: why?
 static __inline envid_t __attribute__((always_inline))

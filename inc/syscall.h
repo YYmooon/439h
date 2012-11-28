@@ -18,6 +18,7 @@ enum {
     SYS_yield,                  // 12
     SYS_ipc_try_send,           // 13
     SYS_ipc_recv,               // 14
+    SYS_env_recovered,
     NSYSCALLS
 };
 

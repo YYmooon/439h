@@ -241,6 +241,14 @@ sys_env_escape_preempt(unsigned times)
     return 0;
 }
 
+int
+sys_env_recovered()
+{
+    assert(curenv);
+    curenv->env_fault_count = 0;
+    return 0;
+}
+
 // Allocate a page of memory and map it at 'va' with permission
 // 'perm' in the address space of 'envid'.
 // The page's contents are set to 0.
@@ -595,6 +603,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             
         case SYS_ipc_recv:
             return sys_ipc_recv((void*) a1);
+
+        case SYS_env_recovered:
+            return sys_env_recovered();
 
         default:
             return -E_INVAL;

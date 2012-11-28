@@ -106,6 +106,8 @@ bc_pgfault(struct UTrapframe *utf)
     // in?)
     if (bitmap && block_is_free(blockno))
     	panic("reading free block %08x\n", blockno);
+
+    sys_env_recovered();
 }
 
 // Flush the contents of the block containing VA out to disk if
