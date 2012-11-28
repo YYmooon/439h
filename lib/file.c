@@ -83,8 +83,6 @@ open(const char *path, int mode)
     } else {
       fd_id = fd2num(fd);
       fd_pg = (void*) fd;
-
-      assert(fd_id == i);
     }
 
     cprintf("allocated file descriptor %d\n", fd_id);

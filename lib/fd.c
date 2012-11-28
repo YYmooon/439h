@@ -44,6 +44,7 @@ _va_is_dirty(void *va)
 {
     return (vpt[PGNUM(va)] & PTE_D) != 0;
 }
+
 // Finds the smallest i from 0 to MAXFD-1 that doesn't have
 // its fd page mapped.
 // Sets *fd_store to the corresponding fd page virtual address.
@@ -69,7 +70,7 @@ fd_alloc(struct Fd **fd_store)
 
     for (i = 0; i < MAXFD; i++) {
         fd = INDEX2FD(i);
-        if(!_va_is_mapped(fd2data(fd))) {
+        if(!_va_is_mapped(fd)) {
             *fd_store = fd;
             return 0;
         }
