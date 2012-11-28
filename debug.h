@@ -59,11 +59,12 @@ do {                                            \
 } while(0);
 #endif
 
-#define FS_DEBUG(...)   CDEBUG(COLOR_CYAN,    __VA_ARGS__)
-#define BC_DEBUG(...)   CDEBUG(COLOR_BLUE,    __VA_ARGS__)
-#define KT_DEBUG(...)   CDEBUG(COLOR_LPURPLE, __VA_ARGS__)
-#define IPC_DEBUG(...)  CDEBUG(COLOR_YELLOW,  __VA_ARGS__)
-#define K_DEBUG(...)    CDEBUG(COLOR_PURPLE,  __VA_ARGS__)
-#define KDEBUG(...)     K_DEBUG(__VA_ARGS__)
+#define FS_DEBUG(...)   //CDEBUG(COLOR_CYAN,    __VA_ARGS__)
+#define BC_DEBUG(...)   //CDEBUG(COLOR_BLUE,    __VA_ARGS__)
+#define KT_DEBUG(...)   //CDEBUG(COLOR_LPURPLE, __VA_ARGS__)
+#define IPC_DEBUG(...)  //CDEBUG(COLOR_YELLOW,  __VA_ARGS__)
+#define IDE_DEBUG(...)  //CDEBUG(COLOR_BROWN,   __VA_ARGS__)
+#define K_DEBUG(...)    //CDEBUG(COLOR_PURPLE,  __VA_ARGS__)
+#define KDEBUG(...)     //K_DEBUG(__VA_ARGS__)
 #define DEBUG(...)      CDEBUG(COLOR_RESET,   __VA_ARGS__)
 #endif

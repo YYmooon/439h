@@ -46,14 +46,14 @@ sched_yield(void)
     while(i != c) {
         if ((envs[i].env_type != ENV_TYPE_IDLE) &&
             (envs[i].env_status == ENV_RUNNABLE)) {
-            cprintf("env %08x launching env %08x\n", c, envs[i].env_id);
+            KDEBUG("env %08x launching env %08x\n", c, envs[i].env_id);
             env_run(&envs[i]);
         } else { 
             i = (i + 1) % NENV;
         }
     }
     
-    if(curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE) {
+    if(curenv && (curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE)) {
         env_run(curenv);
     } else if (cpunum() == 0) {
         K_DEBUG("No more runnable environments!");

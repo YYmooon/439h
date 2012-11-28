@@ -10,7 +10,7 @@
 #include "fs.h"
 
 
-#define debug 1
+#define debug 0
 
 // The file system server maintains three structures
 // for each open file.
@@ -256,13 +256,9 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 
     if(o->o_fd->fd_offset > o->o_file->f_size) {
       o->o_file->f_size = o->o_fd->fd_offset;
-      if(debug)
-        cprintf("[serve_write] wrote %d bytes and extended the file\n",
-                r);
+      FS_DEBUG("wrote %d bytes and extended the file\n", r);
     } else {
-      if(debug)
-        cprintf("[serve_write] wrote %d bytes\n",
-                r);
+      FS_DEBUG("[serve_write] wrote %d bytes\n", r);
     }
     assert(r > 0);
 
@@ -373,7 +369,6 @@ serve(void)
             r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
         } else if (req < NHANDLERS && handlers[req]) {
             r = handlers[req](whom, fsreq);
-            cprintf("Handler exited..\n");
         } else {
             cprintf("Invalid request code %d from %08x\n", whom, req);
             r = -E_INVAL;

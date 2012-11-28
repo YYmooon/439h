@@ -253,7 +253,7 @@ trap_dispatch(struct Trapframe *tf)
     if(tf->tf_trapno == T_PGFLT){
         if(curenv) {
           curenv->env_fault_count++;
-        } if(!curenv || curenv->env_fault_count > 5) {
+        } if(curenv && curenv->env_fault_count > 5) {
             panic("SHIT BE B0RKEN\n");
         }
         page_fault_handler(tf);
@@ -372,7 +372,7 @@ page_fault_handler(struct Trapframe *tf)
     if((tf->tf_cs & 3) != 3) {
         print_trapframe(tf);
         panic("kernel page fault va %08x ip %08x env %x\n",
-                      fault_va, tf->tf_eip, curenv->env_id);
+                      fault_va, tf->tf_eip, curenv?curenv->env_id:0);
     }
 
     // We've already handled kernel-mode exceptions, so if we get here,
@@ -407,7 +407,7 @@ page_fault_handler(struct Trapframe *tf)
     //   (the 'tf' variable points at 'curenv->env_tf').
 
     // LAB 4: Your code here.
-    else if(curenv->env_pgfault_upcall) {
+    else if(curenv && curenv->env_pgfault_upcall) {
         //cprintf("[page_fault_handler] User fault with upcall...\n"); 
         //print_trapframe(tf);
         //cprintf("[page_fault_handler] fault VA was %08x\n", fault_va);
@@ -445,8 +445,7 @@ page_fault_handler(struct Trapframe *tf)
     } else {
         KT_DEBUG("User fault with __NO__ upcall...\n"); 
         // Destroy the environment that caused the fault.
-        KT_DEBUG("user fault va %08x ip %08x\n",
-            curenv->env_id, fault_va, tf->tf_eip);
+        KT_DEBUG("user fault va %08x ip %08x\n", fault_va, tf->tf_eip);
         print_trapframe(tf);
         env_destroy(curenv);
     }

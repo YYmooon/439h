@@ -505,7 +505,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
     env->env_ipc_value    = value;
     env->env_status       = ENV_RUNNABLE;
 
-    cprintf("\e[0;31m%08x unblocked\e[0;00m\n", env->env_id);
+    KDEBUG("\e[0;31m%08x unblocked\e[0;00m\n", env->env_id);
 
     return 0;
 }
@@ -535,7 +535,8 @@ sys_ipc_recv(void *dstva)
     curenv->env_ipc_recving = 1;
     curenv->env_ipc_dstva   = dstva;
     curenv->env_status      = ENV_NOT_RUNNABLE;
-    cprintf("\e[0;31m%08x blocked\e[0;00m\n", curenv->env_id);
+
+    KDEBUG("\e[0;31m%08x blocked\e[0;00m\n", curenv->env_id);
 
     return 0;
 }
