@@ -15,6 +15,7 @@ static uint32_t pci_conf1_data_ioport = 0x0cfc;
 
 // Forward declarations
 static int pci_bridge_attach(struct pci_func *pcif);
+static int pci_ethernet_attach(struct pci_func *pcif);
 
 // PCI driver table
 struct pci_driver {
@@ -25,6 +26,7 @@ struct pci_driver {
 // pci_attach_class matches the class and subclass of a PCI device
 struct pci_driver pci_attach_class[] = {
     { PCI_CLASS_BRIDGE, PCI_SUBCLASS_BRIDGE_PCI, &pci_bridge_attach },
+    { PCI_CLASS_NETWORK, PCI_SUBCLASS_NETWORK_ETHERNET, &pci_ethernet_attach }, 
     { 0, 0, 0 },
 };
 
@@ -182,6 +184,13 @@ pci_bridge_attach(struct pci_func *pcif)
             (busreg >> PCI_BRIDGE_BUS_SUBORDINATE_SHIFT) & 0xff);
 
     pci_scan_bus(&nbus);
+    return 1;
+}
+
+static int
+pci_ethernet_attach(struct pci_func *pcif)
+{
+    pci_func_enable(pcif);
     return 1;
 }
 
