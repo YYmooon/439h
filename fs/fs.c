@@ -65,7 +65,7 @@ alloc_block(void)
     unsigned blockno = 0;
     unsigned bit, mask, entry;
 
-    for(blockno = 0; blockno < super->s_nblocks; blockno++) {
+    for(blockno = 1; blockno < super->s_nblocks; blockno++) {
       bit = 1<<(blockno%32);
       mask = ~bit;
       entry = blockno/32;
@@ -138,9 +138,10 @@ fs_init(void)
 static int
 ensure_block(unsigned *var) {
     if(!*var || block_is_free(*var)) {
+        FS_DEBUG("allocating block...\n");
         int v = alloc_block();
         if(v < 0) {
-            return v;
+            return -E_NO_DISK;
         } else {
             *var = v;
             return 0;
@@ -174,27 +175,33 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 
     if(filebno >= NDIRECT + NINDIRECT) return -E_INVAL;
 
-    int v = 0;
+    int v = 0xDEADBEEF;
     if(filebno < NDIRECT) {
         *ppdiskbno = &f->f_direct[filebno];
         return 0;
     } else {
-        if((!f->f_indirect) || 
-           (block_is_free(f->f_indirect))) {
-            if(alloc)
+        if(!f->f_indirect) {
+            if(alloc) {
                 v = ensure_block(&f->f_indirect);
-            if(v < 0 || (v == 0 && alloc)) 
-                return v;
+                FS_DEBUG("allocated the extended block for file %s\n", f->f_name);
+            } 
+            if(v < 0 || !alloc) {
+                return -E_NOT_FOUND;
+            }
         }
+        assert(f->f_indirect);
+        assert(!block_is_free(f->f_indirect));
+
         uint32_t *pg = (unsigned*) diskaddr(f->f_indirect);
 
         filebno -= NDIRECT;
         v = ensure_block(&pg[filebno]);
+        assert(!block_is_free(pg[filebno]));
 
         if(v < 0)
             return v;
 
-        *ppdiskbno = (uint32_t*)(pg + filebno);
+        *ppdiskbno = &pg[filebno];
         return 0;
     }
 }
@@ -212,20 +219,25 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
     // LAB 5: Your code here.
-    uint32_t* block;
-    int v = file_block_walk(f, filebno, &block, 0);
-    if(v == -E_NOT_FOUND) 
-        v = file_block_walk(f, filebno, &block, 1);
+    uint32_t* block_ptr;
+    int v = file_block_walk(f, filebno, &block_ptr, 1);
 
-    if(v < 0) return v;
-    v = ensure_block(block); 
-    if(v < 0) return -E_NO_DISK;
-    *blk = (char*) diskaddr((uint32_t) *block);  
+    if(v < 0)
+        return v;
+
+    v = ensure_block(block_ptr);
+    assert(!block_is_free(*block_ptr));
+
+    if(v < 0)
+        return -E_NO_DISK;
+
+    *blk = (char*) (DISKMAP + *block_ptr * BLKSIZE);
           // *block at this point is the block ID of a used block
           // diskaddr will return a void* being the memory address
           // corresponding to that block, cast it to a char* and 
           // write it where it needs to be.
 
+    FS_DEBUG("got block %d (%08x), va is %08x\n", filebno, filebno, *blk);
     return 0;
 }
 
