@@ -53,7 +53,7 @@ sched_yield(void)
         }
     }
     
-    if(curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE) {
+    if(curenv && (curenv->env_status == ENV_RUNNING && curenv->env_type != ENV_TYPE_IDLE)) {
         env_run(curenv);
     } else if (cpunum() == 0) {
         K_DEBUG("No more runnable environments!");
