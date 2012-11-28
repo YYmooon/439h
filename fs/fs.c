@@ -135,7 +135,7 @@ fs_init(void)
 // Returns 0 if all is well and a block is present
 // Returns -E_NO_DISK if no block could be allocated 
 //    or if there was a failure in alloc_block
-int
+static int
 ensure_block(unsigned *var) {
     if(!*var || block_is_free(*var)) {
         int v = alloc_block();
@@ -179,20 +179,22 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
         *ppdiskbno = &f->f_direct[filebno];
         return 0;
     } else {
-        if(block_is_free(f->f_indirect) && alloc) {
-            v = ensure_block(&f->f_indirect);
-            if(v < 0) return -E_NO_DISK;
-        } else if(block_is_free(f->f_indirect) && !alloc) {
-            return -E_NOT_FOUND;
+        if((!f->f_indirect) || 
+           (block_is_free(f->f_indirect))) {
+            if(alloc)
+                v = ensure_block(&f->f_indirect);
+            if(v < 0 || (v == 0 && alloc)) 
+                return v;
         }
+        uint32_t *pg = (unsigned*) diskaddr(f->f_indirect);
 
-        // If execution reaches this point, then we know that the indirect
-        // page is mapped. Now we just need to ensure a block in the indirect
-        // chunk.
-        uint32_t *ind_arr = (uint32_t*) diskaddr(f->f_indirect);
         filebno -= NDIRECT;
+        v = ensure_block(&pg[filebno]);
 
-        *ppdiskbno = &ind_arr[filebno];
+        if(v < 0)
+            return v;
+
+        *ppdiskbno = (uint32_t*)(pg + filebno);
         return 0;
     }
 }
