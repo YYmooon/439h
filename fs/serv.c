@@ -110,8 +110,7 @@ serve_open(envid_t envid, struct Fsreq_open *req,
     int r;
     struct OpenFile *o;
 
-    if (debug)
-        cprintf("serve_open %08x %s 0x%x\n", envid, req->req_path, req->req_omode);
+    FS_DEBUG("serve_open %08x %s 0x%x\n", envid, req->req_path, req->req_omode);
 
     // Copy in the path, making sure it's null-terminated
     memmove(path, req->req_path, MAXPATHLEN);
@@ -119,8 +118,7 @@ serve_open(envid_t envid, struct Fsreq_open *req,
 
     // Find an open file ID
     if ((r = openfile_alloc(&o)) < 0) {
-        if (debug)
-            cprintf("openfile_alloc failed: %e\n", r);
+        FS_DEBUG("openfile_alloc failed: %e\n", r);
         return r;
     }
     fileid = r;
@@ -130,15 +128,13 @@ serve_open(envid_t envid, struct Fsreq_open *req,
         if ((r = file_create(path, &f)) < 0) {
             if (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS)
                 goto try_open;
-            if (debug)
-                cprintf("file_create failed: %e\n", r);
+            FS_DEBUG("file_create failed: %e\n", r);
             return r;
         }
     } else {
 try_open:
         if ((r = file_open(path, &f)) < 0) {
-            if (debug)
-                cprintf("file_open failed: %e\n", r);
+            FS_DEBUG("file_open failed: %e\n", r);
             return r;
         }
     }
@@ -146,8 +142,7 @@ try_open:
     // Truncate
     if (req->req_omode & O_TRUNC) {
         if ((r = file_set_size(f, 0)) < 0) {
-            if (debug)
-                cprintf("file_set_size failed: %e\n", r);
+            FS_DEBUG("file_set_size failed: %e\n", r);
             return r;
         }
     }
@@ -161,8 +156,7 @@ try_open:
     o->o_fd->fd_dev_id = devfile.dev_id;
     o->o_mode = req->req_omode;
 
-    if (debug)
-        cprintf("sending success, page %08x\n", (uintptr_t) o->o_fd);
+    FS_DEBUG("sending success, page %08x\n", (uintptr_t) o->o_fd);
 
     // Share the FD page with the caller
     *pg_store = o->o_fd;
@@ -178,8 +172,7 @@ serve_set_size(envid_t envid, struct Fsreq_set_size *req)
     struct OpenFile *o;
     int r;
 
-    if (debug)
-        cprintf("serve_set_size %08x %08x %08x\n", envid, req->req_fileid, req->req_size);
+    FS_DEBUG("serve_set_size %08x %08x %08x\n", envid, req->req_fileid, req->req_size);
 
     // Every file system IPC call has the same general structure.
     // Here's how it goes.
@@ -204,8 +197,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
     struct Fsreq_read *req = &ipc->read;
     struct Fsret_read *ret = &ipc->readRet;
 
-    if (debug)
-        cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+    FS_DEBUG("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
     // Look up the file id, read the bytes into 'ret', and update
     // the seek position.  Be careful if req->req_n > PGSIZE
@@ -225,7 +217,12 @@ serve_read(envid_t envid, union Fsipc *ipc)
     
     unsigned n = (req->req_n < FS_MAX_READ) ? req->req_n : FS_MAX_READ;
 
-    return file_read(o->o_file, &ret->ret_buf, n, o->o_fd->fd_offset);
+    if((r = file_read(o->o_file, &ret->ret_buf, n, o->o_fd->fd_offset)) < 0)
+      return r;
+    else {
+      o->o_fd->fd_offset += r;
+      return r;
+    }
 }
 
 // Write req->req_n bytes from req->req_buf to req_fileid, starting at
@@ -235,8 +232,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
 int
 serve_write(envid_t envid, struct Fsreq_write *req)
 {
-    if (debug)
-        cprintf("serve_write %08x %08x %08x\n", 
+    FS_DEBUG("serve_write %08x %08x %08x\n", 
                 envid, req->req_fileid, req->req_n);
 
     // LAB 5: Your code here.
@@ -301,8 +297,7 @@ serve_flush(envid_t envid, struct Fsreq_flush *req)
     struct OpenFile *o;
     int r;
 
-    if (debug)
-        cprintf("serve_flush %08x %08x\n", envid, req->req_fileid);
+    FS_DEBUG("serve_flush %08x %08x\n", envid, req->req_fileid);
 
     if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
         return r;
@@ -317,8 +312,7 @@ serve_remove(envid_t envid, struct Fsreq_remove *req)
     char path[MAXPATHLEN];
     int r;
 
-    if (debug)
-        cprintf("serve_remove %08x %s\n", envid, req->req_path);
+    FS_DEBUG("serve_remove %08x %s\n", envid, req->req_path);
 
     // Delete the named file.
     // Note: This request doesn't refer to an open file.
@@ -364,8 +358,7 @@ serve(void)
     while (1) {
         perm = 0;
         req = ipc_recv((int32_t *) &whom, fsreq, &perm);
-        if (debug)
-            cprintf("fs req %d from %08x [page %08x: %s]\n",
+        FS_DEBUG("fs req %d from %08x [page %08x: %s]\n",
                 req, whom, vpt[PGNUM(fsreq)], fsreq);
 
         // All requests must contain an argument page
