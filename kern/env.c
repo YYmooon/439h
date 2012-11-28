@@ -572,9 +572,14 @@ env_run(struct Env *e)
     //  e->env_tf to sensible values.
 
     // LAB 3: Your code here.
+
+    assert((e->env_status == ENV_RUNNABLE) || 
+           (e->env_status == ENV_RUNNING));
+
     if (curenv == NULL || curenv->env_id != e->env_id) { // context switch!
         if (curenv) {
-            curenv->env_status = ENV_RUNNABLE;
+            if(curenv->env_status != ENV_NOT_RUNNABLE)
+              curenv->env_status = ENV_RUNNABLE;
         }
         curenv = e;
         curenv->env_status = ENV_RUNNING;

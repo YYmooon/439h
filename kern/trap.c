@@ -16,6 +16,8 @@
 #include <kern/kdebug.h>
 #include <kern/time.h>
 
+#include <debug.h>
+
 static struct Taskstate ts;
 static int faultcount;
 
@@ -246,11 +248,14 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
-<<<<<<< HEAD
     // Handle processor exceptions.
     // LAB 3: Your code here.
     if(tf->tf_trapno == T_PGFLT){
-        cprintf("[trap_dispatch] Engaging page_fault_handler\n");
+        if(curenv) {
+          curenv->env_fault_count++;
+        } if(!curenv || curenv->env_fault_count > 5) {
+            panic("SHIT BE B0RKEN\n");
+        }
         page_fault_handler(tf);
     } else if(tf->tf_trapno == T_BRKPT){
         monitor(tf);
@@ -268,7 +273,7 @@ trap_dispatch(struct Trapframe *tf)
     // The hardware sometimes raises these because of noise on the
     // IRQ line or other reasons. We don't care.
     else if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-        cprintf("Spurious interrupt on irq 7\n");
+        KT_DEBUG("Spurious interrupt on irq 7\n");
         print_trapframe(tf);
         return;
     }
@@ -291,38 +296,6 @@ trap_dispatch(struct Trapframe *tf)
         env_destroy(curenv);
         return;
     }
-=======
-    // Handle processor exceptions.
-    // LAB 3: Your code here.
-
-    // Handle spurious interrupts
-    // The hardware sometimes raises these because of noise on the
-    // IRQ line or other reasons. We don't care.
-    if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
-        cprintf("Spurious interrupt on irq 7\n");
-        print_trapframe(tf);
-        return;
-    }
-
-    // Handle clock interrupts. Don't forget to acknowledge the
-    // interrupt using lapic_eoi() before calling the scheduler!
-    // LAB 4: Your code here.
-
-    // Add time tick increment to clock interrupts.
-    // Be careful! In multiprocessors, clock interrupts are
-    // triggered on every CPU.
-    // LAB 6: Your code here.
-
-
-    // Unexpected trap: The user process or the kernel has a bug.
-    print_trapframe(tf);
-    if (tf->tf_cs == GD_KT)
-        panic("unhandled trap in kernel");
-    else {
-        env_destroy(curenv);
-        return;
-    }
->>>>>>> e9125b3a09e3b761d09a9c8eba4082c5addcf741
 }
 
 void
@@ -342,9 +315,6 @@ trap(struct Trapframe *tf)
     // the interrupt path.
     assert(!(read_eflags() & FL_IF));
 
-    //faultcount++;
-    if(faultcount > 200)
-        panic("Well fuck I'm faulting a lot\n");
 
     if ((tf->tf_cs & 3) == 3) {
         // Trapped from user mode.
@@ -446,7 +416,7 @@ page_fault_handler(struct Trapframe *tf)
         char*  raw_addr;
 
         if((UXSTACKTOP >= tf->tf_esp) && (UXSTACKTOP-PGSIZE <  tf->tf_esp)) {
-            cprintf("[page_fault_handler] recursive fault, adding an exception stack frame\n");
+            KT_DEBUG("recursive fault, adding an exception stack frame\n");
             raw_addr = (char*) tf->tf_esp - 4;
         } else {
             raw_addr = (char*) UXSTACKTOP - 1;
@@ -473,9 +443,9 @@ page_fault_handler(struct Trapframe *tf)
         env_run(curenv);
 
     } else {
-        cprintf("[page_fault_handler] User fault with __NO__ upcall...\n"); 
+        KT_DEBUG("User fault with __NO__ upcall...\n"); 
         // Destroy the environment that caused the fault.
-        cprintf("[%08x] user fault va %08x ip %08x\n",
+        KT_DEBUG("user fault va %08x ip %08x\n",
             curenv->env_id, fault_va, tf->tf_eip);
         print_trapframe(tf);
         env_destroy(curenv);

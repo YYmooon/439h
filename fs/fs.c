@@ -1,5 +1,5 @@
 #include <inc/string.h>
-
+#include <debug.h>
 #include "fs.h"
 
 // --------------------------------------------------------------
@@ -60,22 +60,22 @@ alloc_block(void)
     // contains the in-use bits for BLKBITSIZE blocks.  There are
     // super->s_nblocks blocks in the disk altogether.
 
-    // LAB 5: Your code here.
+	  // LAB 5: Your code here.
 
-  unsigned blockno = 0;
-  unsigned bit, mask, entry;
+    unsigned blockno = 0;
+    unsigned bit, mask, entry;
 
-  for(blockno = 0; blockno < super->s_nblocks; blockno++) {
-    bit = 1<<(blockno%32);
-    mask = ~bit;
-    entry = blockno/32;
+    for(blockno = 1; blockno < super->s_nblocks; blockno++) {
+      bit = 1<<(blockno%32);
+      mask = ~bit;
+      entry = blockno/32;
 
-    if(bitmap[entry] & bit) {
-      bitmap[entry] = bitmap[entry] & mask;
-      assert(!(bitmap[entry] & bit));
-      return blockno;
+      if(bitmap[entry] & bit) {
+        bitmap[entry] = bitmap[entry] & mask;
+        assert(!(bitmap[entry] & bit));
+        return blockno;
+      }
     }
-  }
 
     return -E_NO_DISK;
 }
@@ -135,12 +135,13 @@ fs_init(void)
 // Returns 0 if all is well and a block is present
 // Returns -E_NO_DISK if no block could be allocated 
 //    or if there was a failure in alloc_block
-int
+static int
 ensure_block(unsigned *var) {
     if(!*var || block_is_free(*var)) {
+        FS_DEBUG("allocating block...\n");
         int v = alloc_block();
         if(v < 0) {
-            return v;
+            return -E_NO_DISK;
         } else {
             *var = v;
             return 0;
@@ -174,25 +175,33 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 
     if(filebno >= NDIRECT + NINDIRECT) return -E_INVAL;
 
-    int v = 0;
+    int v = 0xDEADBEEF;
     if(filebno < NDIRECT) {
         *ppdiskbno = &f->f_direct[filebno];
         return 0;
     } else {
-        if(block_is_free(f->f_indirect) && alloc) {
-            v = ensure_block(&f->f_indirect);
-            if(v < 0) return -E_NO_DISK;
-        } else if(block_is_free(f->f_indirect) && !alloc) {
-            return -E_NOT_FOUND;
+        if(!f->f_indirect) {
+            if(alloc) {
+                v = ensure_block(&f->f_indirect);
+                FS_DEBUG("allocated the extended block for file %s\n", f->f_name);
+            } 
+            if(v < 0 || !alloc) {
+                return -E_NOT_FOUND;
+            }
         }
+        assert(f->f_indirect);
+        assert(!block_is_free(f->f_indirect));
 
-        // If execution reaches this point, then we know that the indirect
-        // page is mapped. Now we just need to ensure a block in the indirect
-        // chunk.
-        uint32_t *ind_arr = (uint32_t*) diskaddr(f->f_indirect);
+        uint32_t *pg = (unsigned*) diskaddr(f->f_indirect);
+
         filebno -= NDIRECT;
+        v = ensure_block(&pg[filebno]);
+        assert(!block_is_free(pg[filebno]));
 
-        *ppdiskbno = &ind_arr[filebno];
+        if(v < 0)
+            return v;
+
+        *ppdiskbno = &pg[filebno];
         return 0;
     }
 }
@@ -210,20 +219,25 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
     // LAB 5: Your code here.
-    uint32_t* block;
-    int v = file_block_walk(f, filebno, &block, 0);
-    if(v == -E_NOT_FOUND) 
-        v = file_block_walk(f, filebno, &block, 1);
+    uint32_t* block_ptr;
+    int v = file_block_walk(f, filebno, &block_ptr, 1);
 
-    if(v < 0) return v;
-    v = ensure_block(block); 
-    if(v < 0) return -E_NO_DISK;
-    *blk = (char*) diskaddr((uint32_t) *block);  
+    if(v < 0)
+        return v;
+
+    v = ensure_block(block_ptr);
+    assert(!block_is_free(*block_ptr));
+
+    if(v < 0)
+        return -E_NO_DISK;
+
+    *blk = (char*) (DISKMAP + *block_ptr * BLKSIZE);
           // *block at this point is the block ID of a used block
           // diskaddr will return a void* being the memory address
           // corresponding to that block, cast it to a char* and 
           // write it where it needs to be.
 
+    FS_DEBUG("got block %d (%08x), va is %08x\n", filebno, filebno, *blk);
     return 0;
 }
 
@@ -476,7 +490,7 @@ file_truncate_blocks(struct File *f, off_t newsize)
     new_nblocks = (newsize + BLKSIZE - 1) / BLKSIZE;
     for (bno = new_nblocks; bno < old_nblocks; bno++)
         if ((r = file_free_block(f, bno)) < 0)
-            cprintf("warning: file_free_block: %e", r);
+            BC_DEBUG("warning: file_free_block: %e", r);
 
     if (new_nblocks <= NDIRECT && f->f_indirect) {
         free_block(f->f_indirect);

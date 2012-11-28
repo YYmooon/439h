@@ -32,6 +32,19 @@ fd2data(struct Fd *fd)
     return INDEX2DATA(fd2num(fd));
 }
 
+bool
+_va_is_mapped(void *va)
+{
+    return (vpd[PDX(va)] & PTE_P) && (vpt[PGNUM(va)] & PTE_P);
+}
+
+
+bool
+_va_is_dirty(void *va)
+{
+    return (vpt[PGNUM(va)] & PTE_D) != 0;
+}
+
 // Finds the smallest i from 0 to MAXFD-1 that doesn't have
 // its fd page mapped.
 // Sets *fd_store to the corresponding fd page virtual address.
@@ -50,16 +63,19 @@ fd2data(struct Fd *fd)
 int
 fd_alloc(struct Fd **fd_store)
 {
+    // Lab 5: Your code here.
+ 
     int i;
     struct Fd *fd;
 
     for (i = 0; i < MAXFD; i++) {
         fd = INDEX2FD(i);
-        if ((vpd[PDX(fd)] & PTE_P) == 0 || (vpt[PGNUM(fd)] & PTE_P) == 0) {
+        if(!_va_is_mapped(fd)) {
             *fd_store = fd;
             return 0;
         }
     }
+
     *fd_store = 0;
     return -E_MAX_OPEN;
 }

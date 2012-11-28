@@ -122,3 +122,27 @@ sys_time_msec(void)
 {
     return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_env_escape_preempt(uint32_t times)
+{
+    return syscall(SYS_env_escape_preempt, 0, times, 0, 0, 0, 0);
+}
+
+int
+sys_env_disable_preempt()
+{
+    return syscall(SYS_env_escape_preempt, 0, (uint32_t) 0xBAD1DEA, 0, 0, 0, 0);
+}
+
+int
+sys_env_enable_preempt(uint32_t times)
+{
+    return syscall(SYS_env_escape_preempt, 0, 0, 0, 0, 0, 0);
+}
+
+int
+sys_env_recovered()
+{
+    return syscall(SYS_env_recovered, 0, 0, 0, 0, 0, 0);
+}

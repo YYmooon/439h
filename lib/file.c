@@ -2,7 +2,7 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-#define debug 0
+#define debug 1
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
 
@@ -75,10 +75,18 @@ open(const char *path, int mode)
       return -E_BAD_PATH;
 
     struct Fd* fd;
-    int i, r;
+    void*  fd_pg;
+    int i, fd_id, r;
 
-    if((i = fd_alloc(&fd)) < 0)
+    if((i = fd_alloc(&fd)) < 0) {
       return i;
+    } else {
+      fd_id = fd2num(fd);
+      fd_pg = (void*) fd;
+    }
+
+    cprintf("allocated file descriptor %d\n", fd_id);
+    cprintf("    corresponding page is %08x\n", fd_pg);
 
     // r is now the index, and *fd is a pointer to the fd
     // we need to map the Fd's page, and send the actual file
@@ -87,11 +95,11 @@ open(const char *path, int mode)
     strcpy((char*) &fsipcbuf.open.req_path, path);
     fsipcbuf.open.req_omode = mode;
 
-    if((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+    if((r = fsipc(FSREQ_OPEN, fd_pg)) < 0) {
       fd_close(fd, 0);
       return r;
     }
-    return i;
+    return fd_id;
 }
 
 // Flush the file descriptor.  After this the fileid is invalid.
