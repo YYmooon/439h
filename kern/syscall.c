@@ -546,7 +546,7 @@ static int
 sys_time_msec(void)
 {
     // LAB 6: Your code here.
-    panic("sys_time_msec not implemented");
+    return time_msec();
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -616,6 +616,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_env_recovered:
             return sys_env_recovered();
+
+        case SYS_time_msec:
+            return sys_time_msec();
 
         default:
             return -E_INVAL;
