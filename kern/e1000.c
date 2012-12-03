@@ -1,5 +1,5 @@
 #include <inc/error.h>
-
+#include <kern/env.h>
 #include <kern/e1000.h>
 
 #define DEV_STATUS() (*(uint32_t*)(e1000_reg_map + E1000_STATUS)) 
@@ -11,7 +11,7 @@ volatile char* e1000_flash_map;
 struct tx_desc tx_descriptors[32];
 
 static int
-free_desc()
+desc_alloc()
 {
   int i;
   volatile struct tx_desc* cursor;
@@ -68,7 +68,7 @@ pci_e1000_attach(struct pci_func* f)
 int
 pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 {
-  int r = free_desc();
+  int r = desc_alloc();
   if(r < 0) {
     DEBUG("[pci_e1000_tx] failed to a allocate a packet descriptor!\n");
     return -E_UNSPECIFIED;
@@ -78,7 +78,11 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 
     zero_desc(descriptor); 
 
-    pte_t *entry = pgdir_walk(kern_pgdir, buffer, 0);
+    pte_t *entry = pgdir_walk(curenv->env_pgdir, buffer, 0);
+
+    if(entry == 0)
+      cprintf("bad page table entry!\n");
+
     descriptor->addr = *entry;
     descriptor->length = length;
     
@@ -86,7 +90,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
     
-    while(blocking && !tx_descriptors[r].status.dd)
+    while(blocking && (desc_alloc() < 0))
       continue;
     
     return 0;
