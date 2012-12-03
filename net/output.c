@@ -18,7 +18,7 @@ queue_alloc()
     if(queue_status & bit) {
       queue_status &= mask;
       cursor = v;
-      return v;
+      return v%QUEUE_SIZE;
     }
     v++;
   }
