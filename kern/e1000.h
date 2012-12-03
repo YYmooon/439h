@@ -15,6 +15,7 @@
 #define E1000_TDBAH1         0x03904      /* TX Desc Base Address High (1) - RW */
 
 // transmission
+#define E1000_MAX_TX         16288
 #define E1000_TXD_DTYP_D     0x00100000   /* Data Descriptor */
 #define E1000_TXD_DTYP_C     0x00000000   /* Context Descriptor */
 #define E1000_TXD_POPTS_IXSM 0x00000001   /* Insert IP checksum */
@@ -49,27 +50,27 @@
 #define E1000_CTRL_FD        0x00000001   /* Full duplex.0=half; 1=full */
 
 struct e1000_sta {
-  unsigned dd     :1;
-  unsigned ec     :1;
-  unsigned lc     :1;
+  uint32_t dd     :1;
+  uint32_t ec     :1;
+  uint32_t lc     :1;
   union {
-    unsigned rsv  :1;
-    unsigned tu   :1;
+    uint32_t rsv  :1;
+    uint32_t tu   :1;
   };
 };
 
 struct e1000_dcmd {
-  unsigned eop    :1;
-  unsigned ifcs   :1;
-  unsigned tse    :1;
-  unsigned rs     :1;
+  uint32_t eop    :1;
+  uint32_t ifcs   :1;
+  uint32_t tse    :1;
+  uint32_t rs     :1;
   union {
-    unsigned rsv  :1;
-    unsigned rps  :1;
+    uint32_t rsv  :1;
+    uint32_t rps  :1;
   };
-  unsigned dext   :1;
-  unsigned vle    :1;
-  unsigned ide    :1;
+  uint32_t dext   :1;
+  uint32_t vle    :1;
+  uint32_t ide    :1;
 };
 
 struct tx_desc
@@ -88,6 +89,6 @@ extern volatile char* e1000_flash_map;
 extern struct tx_desc tx_descriptors[32];
 
 int pci_e1000_attach(struct pci_func* f);
-int pci_e1000_tx(void*, unsigned);
+int pci_e1000_tx(void*, unsigned, unsigned);
 
 #endif  // JOS_KERN_E1000_H

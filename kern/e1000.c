@@ -66,7 +66,7 @@ pci_e1000_attach(struct pci_func* f)
 }
 
 int
-pci_e1000_tx(void* buffer, unsigned length)
+pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 {
   int r = free_desc();
   if(r < 0) {
@@ -85,6 +85,10 @@ pci_e1000_tx(void* buffer, unsigned length)
     *((unsigned*)(e1000_reg_map + E1000_TDT)) += 1;
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
+    
+    while(blocking && !tx_descriptors[r].status.dd)
+      continue;
+    
     return 0;
   }
 }
