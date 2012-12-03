@@ -1,25 +1,35 @@
 #include <inc/error.h>
 #include <kern/env.h>
 #include <kern/e1000.h>
+#include <debug.h>
 
 #define DEV_STATUS() (*(uint32_t*)(e1000_reg_map + E1000_STATUS)) 
 #define debug 1
-#define DEBUG(...) if(debug)do{cprintf(__VA_ARGS__);}while(0);
+#define QUEUE_SIZE 32 
 
 volatile char* e1000_reg_map;
 volatile char* e1000_flash_map;
 struct tx_desc tx_descriptors[32];
+static int cursor;
 
 static int
-desc_alloc()
+desc_alloc(int sideffct)
 {
-  int i;
-  volatile struct tx_desc* cursor;
-  for(i = 0; i < 32; i++) {
-    cursor =  (struct tx_desc*) tx_descriptors + i;
-    if(!cursor->status.dd) {
-      return i;
+  volatile struct tx_desc* c;
+  uint32_t v = (cursor+1)%QUEUE_SIZE, bit, mask;
+
+  while(v != (cursor + QUEUE_SIZE)%QUEUE_SIZE) {
+    c =  (struct tx_desc*) tx_descriptors + v;
+    if(!c->status.dd) {
+      if(sideffct)
+        cursor = v;
+      NET_DEBUG("allocated descriptor %d\n", v);
+      return v;
+    } else {
+      NET_ERR_DEBUG("descriptor %d is taken...\n", v);
     }
+
+    v=(v+1)%QUEUE_SIZE;
   }
   return -E_UNSPECIFIED;
 }
@@ -39,6 +49,9 @@ zero_desc(volatile struct tx_desc* descriptor)
 int
 pci_e1000_attach(struct pci_func* f)
 {
+  // Set up the allocation cursor
+  cursor = 0;
+
   // Map the registers using MMIO
   e1000_reg_map = (char*) mmio_map_region(f->reg_base[0], 
                                           f->reg_size[0]);
@@ -54,12 +67,12 @@ pci_e1000_attach(struct pci_func* f)
 
   // Set the DD bit, and corresponding command bit in all descriptors
   int i;
-  volatile struct tx_desc* cursor;
+  volatile struct tx_desc* c;
 
   for(i = 0; i < 32; i++) {
-    cursor =  (struct tx_desc*) tx_descriptors + i;
-    cursor->status.dd = 0;
-    cursor->cmd.rs = 1;
+    c =  (struct tx_desc*) tx_descriptors + i;
+    c->status.dd = 0;
+    c->cmd.rs = 1;
   }
 
   return 0;
@@ -68,12 +81,12 @@ pci_e1000_attach(struct pci_func* f)
 int
 pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 {
-  int r = desc_alloc();
+  int r = desc_alloc(1);
   if(r < 0) {
-    DEBUG("[pci_e1000_tx] failed to a allocate a packet descriptor!\n");
+    NET_ERR_DEBUG("failed to a allocate a packet descriptor!\n");
     return -E_UNSPECIFIED;
   } else {
-    //DEBUG("[pci_e1000_tx] got a descriptor, packing and setting it\n");
+    NET_DEBUG("got a descriptor, packing and setting it\n");
     volatile struct tx_desc* descriptor = (struct tx_desc*) &tx_descriptors[r];
 
     zero_desc(descriptor); 
@@ -81,7 +94,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
     pte_t *entry = pgdir_walk(curenv ? curenv->env_pgdir : kern_pgdir, buffer, 0);
 
     if(entry == 0)
-      cprintf("bad page table entry!\n");
+      NET_ERR_DEBUG("bad page table entry!\n");
 
     descriptor->addr = *entry;
     descriptor->length = length;
@@ -90,7 +103,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
     
-    while(blocking && (desc_alloc() < 0))
+    while(blocking && (desc_alloc(0) < 0))
       continue;
     
     return 0;
