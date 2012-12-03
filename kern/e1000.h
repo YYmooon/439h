@@ -48,6 +48,16 @@
 #define E1000_TCTL_MULR      0x10000000   /* Multiple request support */
 #define E1000_CTRL_FD        0x00000001   /* Full duplex.0=half; 1=full */
 
+struct e1000_sta {
+  unsigned dd     :1;
+  unsigned ec     :1;
+  unsigned lc     :1;
+  union {
+    unsigned rsv  :1;
+    unsigned tu   :1;
+  };
+};
+
 struct e1000_dcmd {
   unsigned eop    :1;
   unsigned ifcs   :1;
@@ -64,13 +74,13 @@ struct e1000_dcmd {
 
 struct tx_desc
 {
-  uint64_t  addr;
-  uint16_t  length;
-  uint8_t   cso;
+  uint64_t          addr;
+  uint16_t          length;
+  uint8_t           cso;
   struct e1000_dcmd cmd;
-  uint8_t   status;
-  uint8_t   css;
-  uint16_t  special;
+  struct e1000_sta  status;
+  uint8_t           css;
+  uint16_t          special;
 };
 
 extern volatile char* e1000_reg_map;
