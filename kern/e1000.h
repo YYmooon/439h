@@ -11,12 +11,14 @@
 #define E1000_TDH            0x03810      /* TX Descriptor Head - RW */
 #define E1000_TXDCTL         0x03828      /* TX Descriptor Control - RW */
 #define E1000_TDLEN          0x03808      /* TX Descriptor Length - RW */
+#define E1000_TDBAL1         0x03900      /* TX Desc Base Address Low (1) - RW */
+#define E1000_TDBAH1         0x03904      /* TX Desc Base Address High (1) - RW */
 
 // transmission
 #define E1000_TXD_DTYP_D     0x00100000   /* Data Descriptor */
 #define E1000_TXD_DTYP_C     0x00000000   /* Context Descriptor */
-#define E1000_TXD_POPTS_IXSM 0x01         /* Insert IP checksum */
-#define E1000_TXD_POPTS_TXSM 0x02         /* Insert TCP/UDP checksum */
+#define E1000_TXD_POPTS_IXSM 0x00000001   /* Insert IP checksum */
+#define E1000_TXD_POPTS_TXSM 0x00000002   /* Insert TCP/UDP checksum */
 #define E1000_TXD_CMD_EOP    0x01000000   /* End of Packet */
 #define E1000_TXD_CMD_IFCS   0x02000000   /* Insert FCS (Ethernet CRC) */
 #define E1000_TXD_CMD_IC     0x04000000   /* Insert Checksum */
@@ -44,13 +46,28 @@
 #define E1000_TCTL_RTLC      0x01000000   /* Re-transmit on late collision */
 #define E1000_TCTL_NRTU      0x02000000   /* No Re-transmit on underrun */
 #define E1000_TCTL_MULR      0x10000000   /* Multiple request support */
+#define E1000_CTRL_FD        0x00000001   /* Full duplex.0=half; 1=full */
+
+struct e1000_dcmd {
+  unsigned eop    :1;
+  unsigned ifcs   :1;
+  unsigned tse    :1;
+  unsigned rs     :1;
+  union {
+    unsigned rsv  :1;
+    unsigned rps  :1;
+  };
+  unsigned dext   :1;
+  unsigned vle    :1;
+  unsigned ide    :1;
+};
 
 struct tx_desc
 {
   uint64_t  addr;
   uint16_t  length;
   uint8_t   cso;
-  uint8_t   cmd;
+  struct e1000_dcmd cmd;
   uint8_t   status;
   uint8_t   css;
   uint16_t  special;
