@@ -78,7 +78,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 
     zero_desc(descriptor); 
 
-    pte_t *entry = pgdir_walk(curenv->env_pgdir, buffer, 0);
+    pte_t *entry = pgdir_walk(curenv ? curenv->env_pgdir : kern_pgdir, buffer, 0);
 
     if(entry == 0)
       cprintf("bad page table entry!\n");
