@@ -11,6 +11,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 #include <debug.h>
 
@@ -549,6 +550,42 @@ sys_time_msec(void)
     return time_msec();
 }
 
+// Takes a user buffer start address and a size assumed to be a valid packet,
+// and takes the appropriate steps to transmit it over the network.
+//
+// [Returns]
+//     -E_INVAL if the buffer would cause a page falt,
+//     -E_INVAL if the descriptor is zero,
+//     -E_INVAL if the buffer is larger than hardware can send,
+//     -E_UNSPECIFIED if the driver could not queue the packet up,
+//     0 if the packet was sent successfully.
+//
+// [Note]
+//    This code does _not_ duplicate the data buffer passed, it assumes that
+//    the buffer is static with respect to the duration of this system call.
+//    To hep make this assumption easier with, this function will backend two
+//    system calls one of which blocks silently until the packet is transmitted
+//    the other of which will return once the packet has been queued and relies
+//    upon the user to ensure the consistency of the data specified.
+static int
+sys_net_send(void* buffer, unsigned buffsize, unsigned blocking)
+{
+    if(!buffer) return -E_INVAL;
+    if(!buffsize) return -E_INVAL;
+    if(buffsize > E1000_MAX_TX) return -E_INVAL;
+
+    pte_t *pte;
+    struct Page *page;
+   
+    if(!page_lookup(curenv->env_pgdir, buffer, &pte))
+        return -E_INVAL;
+
+    if(!page_lookup(curenv->env_pgdir, buffer+buffsize, &pte))
+        return -E_INVAL;
+
+    return pci_e1000_tx(buffer, buffsize, blocking);
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -619,6 +656,11 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_time_msec:
             return sys_time_msec();
+
+        case SYS_net_send:
+            return sys_net_send((void*)    a1, 
+                                (uint32_t) a2, 
+                                (uint32_t) a3);
 
         default:
             return -E_INVAL;

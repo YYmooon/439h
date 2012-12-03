@@ -146,3 +146,17 @@ sys_env_recovered()
 {
     return syscall(SYS_env_recovered, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_net_send(void* buffer, uint32_t size)
+{
+    return syscall(SYS_net_send, 0, (uint32_t) buffer, size, 0, 0, 0);
+}
+
+int
+sys_net_blocking_send(void* buffer, uint32_t size)
+{
+    return syscall(SYS_net_send, 0, (uint32_t) buffer, size, 1, 0, 0);
+}
+
+
