@@ -1,10 +1,8 @@
-#include <inc/lib.h>
-#include <inc/assert.h>
-
 #include <kern/env.h>
-#include <kern/pci/e1000/e1000.h>
-#include <kern/pci/e1000/e1000_hw.h>
+#include <kern/e1000.h>
+#include <kern/e1000_hw.h>
 
+#include <inc/string.h>
 #include <debug.h>
 
 #define DEV_STATUS() (*(uint32_t*)(e1000_reg_map + E1000_STATUS)) 
@@ -69,12 +67,11 @@ e1000_reg_read(uint32_t reg)
 int
 pci_e1000_attach(struct pci_func* f)
 {
-  // reset just to be sure...
-  e1000_reg_set(E1000_CTRL, E1000_CTRL_RST);
-
   // MMIO map the appropriate chunk to a local static pointer 
   e1000_reg_map = (char*) mmio_map_region(f->reg_base[0], 
                                           f->reg_size[0]);
+
+  e1000_reg_set(E1000_CTRL, E1000_CTRL_RST);
 
   DVR_DEBUG("trying to access MMIO'd memory...\n");
   assert(*(uint32_t*)(e1000_reg_map + E1000_STATUS) == 0x80080783); 
@@ -112,10 +109,11 @@ pci_e1000_tx(void* buffer, uint32_t length)
            next = tail;
 
   length = ((length < PGSIZE) ? length : PGSIZE);
+  DVR_DEBUG("truncated length is %d bytes\n", length);
 
-  struct tx_desc* d = &tx_descriptors[next];
+  volatile struct tx_desc* d = &tx_descriptors[next];
   for(; 
-      (d->status | E1000_TXD_STAT_DD); 
+      !(d->status | E1000_TXD_STAT_DD); 
       incmod(next, E1000_RING_SIZE)) {
     d = &tx_descriptors[next];
   }
@@ -132,9 +130,12 @@ pci_e1000_tx(void* buffer, uint32_t length)
   // set the length
   d->length = length;
   // set the command bits
-  d->cmd |=  E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
+  d->cmd |=  1 | 1<<3;
+
+  DVR_DEBUG("%08x %08x %08x\n", d->addr, d->length, d->status);
 
   // increment the tail value to whatever next is...
+  incmod(next, E1000_RING_SIZE);
   e1000_reg_assign(E1000_TDT, next);
 
   return length;

@@ -8,7 +8,7 @@
 
 struct tx_buffer {
   char data[PGSIZE];
-}__attribute__((align(PGSIZE)));
+}__attribute__((aligned(PGSIZE)));
 
 struct tx_desc
 {
@@ -19,7 +19,7 @@ struct tx_desc
   uint8_t status;
   uint8_t css;
   uint16_t special;
-}__attribute__((align(16)));
+}__attribute__((aligned(16)));
 
 extern volatile char* e1000_reg_map;
 extern volatile char* e1000_flash_map;

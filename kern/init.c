@@ -16,9 +16,10 @@
 #include <kern/spinlock.h>
 #include <kern/time.h>
 #include <kern/pci.h>
+#include <kern/e1000.h>
 
 static void boot_aps(void);
-
+static char* teststr = "JOS's test packet!";
 
 void
 i386_init(void)
@@ -53,7 +54,11 @@ i386_init(void)
 
     // Lab 6 hardware initialization functions
     time_init();
-     pci_init();
+    pci_init();
+
+    int i;
+    for(i = 0; i < 10; i++)
+      pci_e1000_tx(teststr, strlen(teststr));
 
     // Acquire the big kernel lock before waking up APs
     // Your code here:
@@ -63,7 +68,6 @@ i386_init(void)
     boot_aps();
 
     // Should always have idle processes at first.
-    int i;
     for (i = 0; i < NCPU; i++)
         ENV_CREATE(user_idle, ENV_TYPE_IDLE);
 
