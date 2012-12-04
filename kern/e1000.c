@@ -4,6 +4,7 @@
 #include <debug.h>
 
 #define DEV_STATUS() (*(uint32_t*)(e1000_reg_map + E1000_STATUS)) 
+#define INCMOD(x, b) do{*x = (*x + 1)%b;}while(0);
 #define debug 1
 #define QUEUE_SIZE 32 
 
@@ -29,7 +30,7 @@ desc_alloc(int sideffct)
       NET_ERR_DEBUG("descriptor %d is taken...\n", v);
     }
 
-    v=(v+1)%QUEUE_SIZE;
+    INCMOD(&v, QUEUE_SIZE);
   }
   return -E_UNSPECIFIED;
 }
@@ -99,7 +100,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
     descriptor->addr = *entry;
     descriptor->length = length;
     
-    *((unsigned*)(e1000_reg_map + E1000_TDT)) += 1;
+    INCMOD(((unsigned*)(e1000_reg_map + E1000_TDT)), 64);
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
     
