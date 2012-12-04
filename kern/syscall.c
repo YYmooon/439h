@@ -659,12 +659,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_net_send:
             return sys_net_send((void*)    a1, 
-<<<<<<< HEAD
-                                (uint32_t) a2, 
-                                (uint32_t) a3);
-=======
                                 (uint32_t) a2);
->>>>>>> long-march
 
         default:
             return -E_INVAL;

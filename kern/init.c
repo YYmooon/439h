@@ -36,7 +36,6 @@ i386_init(void)
     cons_init();
 
     cprintf("372 decimal is %o octal!\n", 372);
-    cprintf("test data is %s, address %08x\n", test_data, test_data);
 
     // Lab 2 memory management initialization functions
     mem_init();
@@ -57,8 +56,8 @@ i386_init(void)
     pci_init();
 
     int i;
-    for(i = 0; i < 10; i++)
-      pci_e1000_tx(teststr, strlen(teststr));
+    //for(i = 0; i < 10; i++)
+    //  pci_e1000_tx(teststr, strlen(teststr));
 
     // Acquire the big kernel lock before waking up APs
     // Your code here:
