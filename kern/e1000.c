@@ -1,4 +1,6 @@
 #include <inc/error.h>
+#include <inc/string.h>
+
 #include <kern/env.h>
 #include <kern/e1000.h>
 #include <debug.h>
@@ -7,11 +9,11 @@
 #define INCMOD(x, b)            do{*x = (*x + 1)%b;}while(0);
 #define E1000_SET_REG(reg, val) 
 #define debug 1
-#define QUEUE_SIZE 32 
 
 volatile char* e1000_reg_map;
 volatile char* e1000_flash_map;
-struct tx_desc tx_descriptors[32];
+struct tx_desc tx_descriptors[E1000_RING_SIZE];
+struct e1000_page tx_datablocks[E1000_RING_SIZE];
 static int cursor;
 
 static int
@@ -24,20 +26,20 @@ static int
 desc_alloc(int sideffct)
 {
   volatile struct tx_desc* c;
-  uint32_t v = (cursor+1)%QUEUE_SIZE, bit, mask;
+  uint32_t v = (cursor+1)%E1000_RING_SIZE, bit, mask;
 
-  while(v != (cursor + QUEUE_SIZE)%QUEUE_SIZE) {
+  while(v != (cursor + E1000_RING_SIZE)%E1000_RING_SIZE) {
     c =  (struct tx_desc*) tx_descriptors + v;
     if(!c->status.dd) {
       if(sideffct)
         cursor = v;
-      NET_DEBUG("allocated descriptor %d\n", v);
+      //NET_DEBUG("allocated descriptor %d\n", v);
       return v;
     } else {
-      NET_ERR_DEBUG("descriptor %d is taken...\n", v);
+      //NET_ERR_DEBUG("descriptor %d is taken...\n", v);
     }
 
-    INCMOD(&v, QUEUE_SIZE);
+    INCMOD(&v, E1000_RING_SIZE);
   }
   return -E_UNSPECIFIED;
 }
@@ -45,33 +47,44 @@ desc_alloc(int sideffct)
 void
 zero_desc(volatile struct tx_desc* descriptor)
 {
-  descriptor->addr    = 0;
-  descriptor->length  = 0;
-  descriptor->cso     = 0;
-  *((uint8_t*)&descriptor->cmd) &= (1<<3); // unset everything but the RS bit
+  descriptor->addr                  = 0;
+  descriptor->length                = 0;
+  *((uint8_t*)&descriptor->cmd)     = 0;
   *((uint32_t*)&descriptor->status) = 0;
-  descriptor->css     = 0;
-  descriptor->special = 0;
+  *((uint8_t*)&descriptor->css)     = 0;
+  descriptor->special               = 0;
 }
 
 int
 pci_e1000_attach(struct pci_func* f)
 {
   // Set up the allocation cursor
-  cursor = 0;
+  cursor = -1;
 
   // Map the registers using MMIO
   e1000_reg_map = (char*) mmio_map_region(f->reg_base[0], 
                                           f->reg_size[0]);
 
-  // Set the transmission h
-  e1000_reg_write(E1000_TDLEN,  32);
+  // Set the paddr where the ring buffer resides 
+  e1000_reg_write(E1000_TDBAL,  PADDR(&tx_descriptors[0]));
+  // Set the high bits of the paddr where the ring buffer resides
+  e1000_reg_write(E1000_TDBAH,  0);
+ 
+  // Set the transmission ringbuffer size
+  e1000_reg_write(E1000_TDLEN,  E1000_RING_SIZE*sizeof(struct tx_desc) << 7);
+
+  // Set the head and tail values... 
   e1000_reg_write(E1000_TDH,    0);
   e1000_reg_write(E1000_TDT,    0);
-  e1000_reg_write(E1000_TCTL,   (E1000_TCTL_EN | E1000_TCTL_PSP | E1000_CTRL_FD));
 
-  pte_t *entry = pgdir_walk(kern_pgdir, &tx_descriptors, 0);
-  *((unsigned*)(e1000_reg_map + E1000_TDBAL1)) = *entry;
+  // Set the transmission control properties
+  e1000_reg_write(E1000_TCTL,   (E1000_TCTL_EN  | // set the card online for TX
+                                 E1000_TCTL_PSP | // pad short packets
+                                 //(0x10 << 4)    | // set the CT value
+                                 //((0x40) << 12) | // set the COLD value
+                                 0));
+  
+  e1000_reg_write(E1000_TIPG, 10);
 
   // Set the DD bit, and corresponding command bit in all descriptors
   int i;
@@ -92,30 +105,31 @@ int
 pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
 {
   int r = desc_alloc(1);
+  memcpy(buffer, (void*)&tx_datablocks[r], (length < PGSIZE) ? length : PGSIZE);
   if(r < 0) {
     NET_ERR_DEBUG("failed to a allocate a packet descriptor!\n");
     return -E_UNSPECIFIED;
   } else {
-    NET_DEBUG("got a descriptor, packing and setting it\n");
+    NET_DEBUG("got a descriptor %d, packing and setting it\n", r);
     volatile struct tx_desc* descriptor = (struct tx_desc*) &tx_descriptors[r];
 
     zero_desc(descriptor); 
 
-    pte_t *entry = pgdir_walk(curenv ? curenv->env_pgdir : kern_pgdir, buffer, 0);
+    NET_DEBUG("instructing card to write %d bytes from paddr %08x\n", length, PADDR(&tx_datablocks[r]));
 
-    if(entry == 0)
-      NET_ERR_DEBUG("bad page table entry!\n");
+    descriptor->addr      = PADDR(&tx_datablocks[r]);
+    descriptor->length    = length;
 
-    descriptor->addr = *entry;
-    descriptor->length = length;
-    
-    INCMOD(((unsigned*)(e1000_reg_map + E1000_TDT)), 32);
+    descriptor->cmd.eop   = 1;
+    descriptor->cmd.rs    = 1;
+
+    INCMOD(((unsigned*)(e1000_reg_map + E1000_TDT)), E1000_RING_SIZE);
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
-    
-    while(blocking && (desc_alloc(0) < 0))
+
+    while(blocking && (r = desc_alloc(0) < 0))
       continue;
-    
+
     return 0;
   }
 }

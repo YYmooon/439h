@@ -11,8 +11,9 @@
 #define E1000_TDH            0x03810      /* TX Descriptor Head - RW */
 #define E1000_TXDCTL         0x03828      /* TX Descriptor Control - RW */
 #define E1000_TDLEN          0x03808      /* TX Descriptor Length - RW */
-#define E1000_TDBAL1         0x03900      /* TX Desc Base Address Low (1) - RW */
-#define E1000_TDBAH1         0x03904      /* TX Desc Base Address High (1) - RW */
+#define E1000_TDBAL          0x03900      /* TX Desc Base Address Low (1) - RW */
+#define E1000_TDBAH          0x03904      /* TX Desc Base Address High (1) - RW */
+#define E1000_TIPG           0x00410  /* TX Inter-packet gap -RW */
 
 // transmission
 #define E1000_MAX_TX         16288
@@ -49,6 +50,8 @@
 #define E1000_TCTL_MULR      0x10000000   /* Multiple request support */
 #define E1000_CTRL_FD        0x00000001   /* Full duplex.0=half; 1=full */
 
+#define E1000_RING_SIZE     32 
+
 struct e1000_sta {
   uint32_t dd     :1;
   uint32_t ec     :1;
@@ -57,6 +60,7 @@ struct e1000_sta {
     uint32_t rsv  :1;
     uint32_t tu   :1;
   };
+  uint32_t junk   :4;
 };
 
 struct e1000_dcmd {
@@ -73,6 +77,12 @@ struct e1000_dcmd {
   uint32_t ide    :1;
 };
 
+struct e1000_popt {
+  uint32_t ixsm   :1;
+  uint32_t txsm   :1;
+  uint32_t rsv    :6;
+};
+
 struct tx_desc
 {
   uint64_t          addr;
@@ -82,11 +92,16 @@ struct tx_desc
   struct e1000_sta  status;
   uint8_t           css;
   uint16_t          special;
+} __attribute__((aligned(16)));
+
+struct e1000_page {
+  char data[PGSIZE];
 };
 
 extern volatile char* e1000_reg_map;
 extern volatile char* e1000_flash_map;
-extern struct tx_desc tx_descriptors[32];
+extern struct tx_desc tx_descriptors[E1000_RING_SIZE];
+extern struct  e1000_page    tx_datablocks[E1000_RING_SIZE];
 
 int pci_e1000_attach(struct pci_func* f);
 int pci_e1000_tx(void*, unsigned, unsigned);
