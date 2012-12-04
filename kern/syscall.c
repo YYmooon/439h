@@ -568,11 +568,11 @@ sys_time_msec(void)
 //    the other of which will return once the packet has been queued and relies
 //    upon the user to ensure the consistency of the data specified.
 static int
-sys_net_send(void* buffer, unsigned buffsize, unsigned blocking)
+sys_net_send(void* buffer, unsigned buffsize)
 {
     if(!buffer) return -E_INVAL;
     if(!buffsize) return -E_INVAL;
-    if(buffsize > E1000_MAX_TX) return -E_INVAL;
+    if(buffsize > PGSIZE) return -E_INVAL;
 
     pte_t *pte;
     struct Page *page;
@@ -583,7 +583,7 @@ sys_net_send(void* buffer, unsigned buffsize, unsigned blocking)
     if(!page_lookup(curenv->env_pgdir, buffer+buffsize, &pte))
         return -E_INVAL;
 
-    return pci_e1000_tx(buffer, buffsize, blocking);
+    return pci_e1000_tx(buffer, buffsize);
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -659,8 +659,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_net_send:
             return sys_net_send((void*)    a1, 
+<<<<<<< HEAD
                                 (uint32_t) a2, 
                                 (uint32_t) a3);
+=======
+                                (uint32_t) a2);
+>>>>>>> long-march
 
         default:
             return -E_INVAL;

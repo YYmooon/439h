@@ -19,8 +19,7 @@
 #include <kern/e1000.h>
 
 static void boot_aps(void);
-
-static char* test_data = "This is JOS's test packet!";
+static char* teststr = "JOS's test packet!";
 
 void
 i386_init(void)
@@ -56,12 +55,10 @@ i386_init(void)
     // Lab 6 hardware initialization functions
     time_init();
     pci_init();
-  
-    // blast out some junk packets
 
     int i;
-    for(i = 0; i < 12; i++)
-      pci_e1000_tx(test_data, 28, 1);
+    for(i = 0; i < 10; i++)
+      pci_e1000_tx(teststr, strlen(teststr));
 
     // Acquire the big kernel lock before waking up APs
     // Your code here:
