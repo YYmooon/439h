@@ -52,56 +52,25 @@
 
 #define E1000_RING_SIZE     32 
 
-struct e1000_sta {
-  uint32_t dd     :1;
-  uint32_t ec     :1;
-  uint32_t lc     :1;
-  union {
-    uint32_t rsv  :1;
-    uint32_t tu   :1;
-  };
-  uint32_t junk   :4;
-};
-
-struct e1000_dcmd {
-  uint32_t eop    :1;
-  uint32_t ifcs   :1;
-  uint32_t tse    :1;
-  uint32_t rs     :1;
-  union {
-    uint32_t rsv  :1;
-    uint32_t rps  :1;
-  };
-  uint32_t dext   :1;
-  uint32_t vle    :1;
-  uint32_t ide    :1;
-};
-
-struct e1000_popt {
-  uint32_t ixsm   :1;
-  uint32_t txsm   :1;
-  uint32_t rsv    :6;
-};
-
 struct tx_desc
 {
   uint64_t          addr;
   uint16_t          length;
   uint8_t           cso;
-  struct e1000_dcmd cmd;
-  struct e1000_sta  status;
+  uint8_t           cmd;
+  uint8_t           status;
   uint8_t           css;
   uint16_t          special;
 } __attribute__((aligned(16)));
 
 struct e1000_page {
-  char data[PGSIZE];
-};
+  char data[E1000_MAX_TX];
+} __attribute__((aligned(PGSIZE)));
 
 extern volatile char* e1000_reg_map;
 extern volatile char* e1000_flash_map;
 extern struct tx_desc tx_descriptors[E1000_RING_SIZE];
-extern struct  e1000_page    tx_datablocks[E1000_RING_SIZE];
+extern struct e1000_page tx_datablocks[E1000_RING_SIZE];
 
 int pci_e1000_attach(struct pci_func* f);
 int pci_e1000_tx(void*, unsigned, unsigned);
