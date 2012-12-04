@@ -3,8 +3,9 @@
 #include <kern/e1000.h>
 #include <debug.h>
 
-#define DEV_STATUS() (*(uint32_t*)(e1000_reg_map + E1000_STATUS)) 
-#define INCMOD(x, b) do{*x = (*x + 1)%b;}while(0);
+#define DEV_STATUS()            (*(uint32_t*)(e1000_reg_map + E1000_STATUS))
+#define INCMOD(x, b)            do{*x = (*x + 1)%b;}while(0);
+#define E1000_SET_REG(reg, val) 
 #define debug 1
 #define QUEUE_SIZE 32 
 
@@ -12,6 +13,12 @@ volatile char* e1000_reg_map;
 volatile char* e1000_flash_map;
 struct tx_desc tx_descriptors[32];
 static int cursor;
+
+static int
+e1000_reg_write(uint32_t reg, uint32_t val)
+{
+  return (*((unsigned*)(e1000_reg_map + reg)) = val);
+}
 
 static int
 desc_alloc(int sideffct)
@@ -58,10 +65,10 @@ pci_e1000_attach(struct pci_func* f)
                                           f->reg_size[0]);
 
   // Set the transmission h
-  *((unsigned*)(e1000_reg_map + E1000_TDLEN)) = 32*sizeof(struct tx_desc);
-  *((unsigned*)(e1000_reg_map + E1000_TDH))   = 0;
-  *((unsigned*)(e1000_reg_map + E1000_TDT))   = 0;
-  *((unsigned*)(e1000_reg_map + E1000_TCTL))  = (E1000_TCTL_EN | E1000_TCTL_PSP | E1000_CTRL_FD);
+  e1000_reg_write(E1000_TDLEN,  32);
+  e1000_reg_write(E1000_TDH,    0);
+  e1000_reg_write(E1000_TDT,    0);
+  e1000_reg_write(E1000_TCTL,   (E1000_TCTL_EN | E1000_TCTL_PSP | E1000_CTRL_FD));
 
   pte_t *entry = pgdir_walk(kern_pgdir, &tx_descriptors, 0);
   *((unsigned*)(e1000_reg_map + E1000_TDBAL1)) = *entry;
@@ -75,6 +82,8 @@ pci_e1000_attach(struct pci_func* f)
     c->status.dd = 0;
     c->cmd.rs = 1;
   }
+
+  assert((uint32_t) &tx_descriptors[0] % 16 == 0);
 
   return 0;
 }
@@ -100,7 +109,7 @@ pci_e1000_tx(void* buffer, unsigned length, unsigned blocking)
     descriptor->addr = *entry;
     descriptor->length = length;
     
-    INCMOD(((unsigned*)(e1000_reg_map + E1000_TDT)), 64);
+    INCMOD(((unsigned*)(e1000_reg_map + E1000_TDT)), 32);
 
     //DEBUG("[pci_e1000_tx] returning from call...\n");
     
