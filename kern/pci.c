@@ -3,7 +3,9 @@
 #include <inc/string.h>
 #include <kern/pci.h>
 #include <kern/pcireg.h>
-#include <kern/e1000.h>
+
+// this is doing it wrong, there should be a way for drivers to register themselves but w/e
+#include <kern/pci/e1000/e1000.h>
 
 // Flag to do "lspci" at bootup
 static int pci_show_devs = 1;
