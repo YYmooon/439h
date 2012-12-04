@@ -10,6 +10,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/time.h>
 
 #include <debug.h>
 
@@ -540,6 +541,14 @@ sys_ipc_recv(void *dstva)
     return 0;
 }
 
+// Return the current time.
+static int
+sys_time_msec(void)
+{
+    // LAB 6: Your code here.
+    return time_msec();
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -607,6 +616,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_env_recovered:
             return sys_env_recovered();
+
+        case SYS_time_msec:
+            return sys_time_msec();
 
         default:
             return -E_INVAL;

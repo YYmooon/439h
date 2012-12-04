@@ -1,6 +1,5 @@
 #include <debug.h>
 #include "fs.h"
-#include "../debug.h"
 
 // Return the virtual address of this disk block.
 void*
