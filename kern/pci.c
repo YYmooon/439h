@@ -193,7 +193,8 @@ static int
 pci_ethernet_attach(struct pci_func *pcif)
 {
     pci_func_enable(pcif);
-    return pci_e1000_attach(pcif);
+    pci_e1000_attach(pcif);
+    return 0;
 }
 
 // External PCI subsystem interface

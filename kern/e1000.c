@@ -17,8 +17,13 @@
 volatile char* e1000_reg_map;
 volatile char* e1000_flash_map;
 
-struct tx_buffer tx_buffers[E1000_RING_SIZE];
-struct tx_desc   tx_descriptors[E1000_RING_SIZE];
+struct e1000_buffer tx_buffers[E1000_RING_SIZE];
+struct tx_desc      tx_descriptors[E1000_RING_SIZE];
+
+struct e1000_buffer rx_buffers[E1000_RING_SIZE];
+struct rx_desc      rx_descriptors[E1000_RING_SIZE];
+
+static char addr[] = {0x52, 0x54, 0x0, 0x12, 0x34, 0x56};
 
 /*=============================================================================
  * helper code that I'll use to keep everything neat
@@ -64,7 +69,7 @@ e1000_reg_read(uint32_t reg)
  * Takes a pci descriptor as generated in kern/pci.c and configures this device
  * as a single-instance kernel mode driver to interact therewith
  *===========================================================================*/
-int
+void
 pci_e1000_attach(struct pci_func* f)
 {
   // MMIO map the appropriate chunk to a local static pointer 
@@ -73,12 +78,24 @@ pci_e1000_attach(struct pci_func* f)
 
   e1000_reg_set(E1000_CTRL, E1000_CTRL_RST);
 
+  pci_e1000_init();
+}
+
+void
+pci_e1000_init()
+{
+  /*=========================================================================
+   * test the MMIO region first...
+   *=========================================================================*/
   DVR_DEBUG("trying to access MMIO'd memory...\n");
   assert(*(uint32_t*)(e1000_reg_map + E1000_STATUS) == 0x80080783); 
   DVR_DEBUG("sucess! device status is %08x\n", DEV_STATUS()); 
 
-  // Set up the transmit ring registers
-  // this code equivalent to the MINIX E1000 driver
+  /*=========================================================================
+   * Set up the transmit ring registers. this code equivalent to the MINIX 
+   * E1000 driver, and is derived in large part therefrom in an effort to
+   * ensure both readability, and correctness
+   *=========================================================================*/
   e1000_reg_assign(E1000_TDBAL, PADDR(&tx_descriptors[0]));
   e1000_reg_assign(E1000_TDBAH, 0);
   e1000_reg_assign(E1000_TDLEN, E1000_RING_SIZE * sizeof(struct tx_desc));
@@ -94,12 +111,44 @@ pci_e1000_attach(struct pci_func* f)
     tx_descriptors[i].status |= E1000_TXD_STAT_DD;
   }
 
-  return 1;
+  /*=========================================================================
+   * set up for packet reception
+   *=========================================================================*/
+
+  // do the basic registers first, essentially the same as transmission
+  e1000_reg_assign(E1000_RDBAL, PADDR(&rx_descriptors[0]));
+  e1000_reg_assign(E1000_RDBAH, 0);
+  e1000_reg_assign(E1000_RDLEN, E1000_RING_SIZE * sizeof(struct rx_desc));
+
+  e1000_reg_assign(E1000_RDH, 0);
+  e1000_reg_assign(E1000_RDT, 0);
+  e1000_reg_set(E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_MPE);
+
+  for(i = 0; i < E1000_RING_SIZE; i++) {
+    rx_descriptors[i].addr = PADDR(&rx_buffers[i]);
+    rx_descriptors[i].length = E1000_MAX_PACKET;
+  }
+
+  /*=========================================================================
+   * ensure that an address is set, although software may change it at any time
+   *=========================================================================*/
+
+  pci_e1000_set_addr(0);
+}
+
+void
+pci_e1000_set_addr(char* a)
+{
+  a = a ? a : addr;
+  // set to filter by MAC address
+  e1000_reg_set(E1000_RAL, *(uint32_t*)a);
+  e1000_reg_set(E1000_RAH, (*(uint16_t*)&a[4]) | E1000_RAH_AV);
 }
 
 /*===========================================================================
- * pci_tx configures a
- * 
+ * pci_tx allocates and initializes a packet descriptor, then updates the ring
+ * buffer's base so that it will be transmitted. Will block until there is an
+ * open descriptor as judged by the spec-ensured DD bit.
  *===========================================================================*/
 int 
 pci_e1000_tx(void* buffer, uint32_t length)
@@ -140,3 +189,40 @@ pci_e1000_tx(void* buffer, uint32_t length)
 
   return length;
 }
+
+/*===========================================================================
+ * pci_rx takes the first packet off of the inbound ring buffer and dumps it
+ * to a user-supplied buffer clearing the recieve buffer and marking the now
+ * empty entry as usable.
+ *
+ * Returns the number of bytes read, and 0 if there were no packets to read
+ * or if the buffer indicated is of insifficient size. If there were errors,
+ * those are returned and the data is still read.
+ *===========================================================================*/
+int
+pci_e1000_rx(void* buffer, uint32_t length)
+{
+  uint32_t head = e1000_reg_read(E1000_RDH),
+           tail = e1000_reg_read(E1000_RDT),
+           cur  = (tail + 1) % E1000_RING_SIZE;
+
+  volatile struct rx_desc* d = &rx_descriptors[cur];
+
+  if(!d->status) return 0;
+  if(d->length > length) return 0;
+
+  // get the bytes out of there...
+  memcpy(buffer, &rx_buffers[cur], d->length);
+  length = d->errors ? d->errors : d->length;
+
+  // reset the descriptor
+  d->length = E1000_MAX_PACKET;
+  d->status = 0;
+  d->errors = 0;
+
+  // bump the tail
+  e1000_reg_assign(E1000_RDT, cur);
+
+  return length;
+}
+
