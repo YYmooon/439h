@@ -254,6 +254,7 @@ trap_dispatch(struct Trapframe *tf)
         if(curenv) {
           curenv->env_fault_count++;
         } if(curenv && curenv->env_fault_count > 5) {
+            print_trapframe(tf);
             panic("SHIT BE B0RKEN\n");
         }
         page_fault_handler(tf);
