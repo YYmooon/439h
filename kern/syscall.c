@@ -572,7 +572,6 @@ sys_net_send(void* buffer, unsigned buffsize)
 {
     if(!buffer) return -E_INVAL;
     if(!buffsize) return -E_INVAL;
-    if(buffsize > PGSIZE) return -E_INVAL;
 
     pte_t *pte;
     struct Page *page;
@@ -584,6 +583,27 @@ sys_net_send(void* buffer, unsigned buffsize)
         return -E_INVAL;
 
     return pci_e1000_tx(buffer, buffsize);
+}
+
+// Does the same thing in reverse, slurping the first packet off of the wire and
+// dumping it to the user provided buffer. Same error cases as above, again to
+// guard against a possible segfault in the kernel.
+static int
+sys_net_recieve(void* buffer, unsigned buffsize)
+{
+    if(!buffer) return -E_INVAL;
+    if(!buffsize) return -E_INVAL;
+
+    pte_t *pte;
+    struct Page *page;
+   
+    if(!page_lookup(curenv->env_pgdir, buffer, &pte))
+        return -E_INVAL;
+
+    if(!page_lookup(curenv->env_pgdir, buffer+buffsize, &pte))
+        return -E_INVAL;
+
+    return pci_e1000_rx(buffer, buffsize);
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -658,6 +678,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             return sys_time_msec();
 
         case SYS_net_send:
+            return sys_net_send((void*)    a1, 
+                                (uint32_t) a2);
+
+        case SYS_net_recieve:
             return sys_net_send((void*)    a1, 
                                 (uint32_t) a2);
 

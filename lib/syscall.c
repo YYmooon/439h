@@ -154,9 +154,7 @@ sys_net_send(void* buffer, uint32_t size)
 }
 
 int
-sys_net_blocking_send(void* buffer, uint32_t size)
+sys_net_recieve(void* buffer, uint32_t size)
 {
-    return syscall(SYS_net_send, 0, (uint32_t) buffer, size, 1, 0, 0);
+    return syscall(SYS_net_recieve, 0, (uint32_t) buffer, size, 0, 0, 0);
 }
-
-
