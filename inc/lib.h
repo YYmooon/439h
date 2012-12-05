@@ -65,7 +65,7 @@ int sys_env_disable_preempt();
 int sys_env_enable_preempt();
 int sys_env_recovered();
 int sys_net_send(void*, uint32_t);
-int sys_net_blocking_send(void*, uint32_t);
+int sys_net_recieve(void*, uint32_t);
 
 // This must be inlined.  Exercise for reader: why?
 static __inline envid_t __attribute__((always_inline))
